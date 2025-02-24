@@ -41,11 +41,6 @@
     explainText="$(string.DeviceTunnel_Explain)">
       <parentCategory ref="AOVPN" />
     </category>
-    <category name="UserTunnel" 
-    displayName="$(string.UserTunnel_Name)"
-    explainText="$(string.UserTunnel_Explain)">
-      <parentCategory ref="AOVPN" />
-    </category>
     <category name="AllUserConnection" 
     displayName="$(string.AllUserConnection_Name)"
     explainText="$(string.AllUserConnection_Explain)">
