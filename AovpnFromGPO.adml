@@ -1,0 +1,224 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--  2024 Anthony Stang  -->
+<policyDefinitionResources xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" revision="1.0" schemaVersion="1.0" xmlns="http://schemas.microsoft.com/GroupPolicy/2006/07/PolicyDefinitions">
+  <displayName>Always On VPN</displayName>
+  <description>Settings for Always on VPN connections.
+
+Most settings are only effective if the provided script is used for deployment.
+  </description>
+  <resources>
+    <stringTable>
+      <string id="AOVPN_Name">Always On VPN From GPO</string>
+      <string id="AOVPN_Explain">Policies for Microsoft Always On VPN connections.
+      
+The policies are only effective if used with subtle3´s Set-AovpnFromGPO.ps1 available here:</string>
+
+      <string id="DeviceTunnel_Name">Devicetunnel</string>
+      <string id="DeviceTunnel_Explain">Policies that allow you to create a Microsoft Always On VPN Devicetunnel.
+
+This connection type requires Windows 10/11 Enterprise or Education.</string>
+
+      
+      <string id="AllUserConnection_Name">All User Connection</string>
+      <string id="AllUserConnection_Explain">Policies that allow you to create a Microsoft Always On VPN User Connection that applies to all users of a device.</string>
+      
+
+      <string id="SUPPORTED_Windows_10_0_NOSERVER_ENTERPRISE_EDUCATION">At least Windows 10 Enterprise or Education</string>
+      <string id="SUPPORTED_Windows_11_0_22H2_NOSERVER_ENTERPRISE_EDUCATION">At least Windows 11 22H2 Enterprise or Education</string>
+      
+
+
+
+      <string id="UpdatesEnabled_Name">[Mandatory] Enable automatic configuration updates</string>
+      <string id="UpdatesEnabled_Explain">Enable/Disable automatic configuration updates</string>
+
+      <string id="DNSSuffix_Name">[Mandatory] DNS-Suffix to use when connected</string>
+      <string id="DNSSuffix_Explain">Specify the DNS-Suffix that should be used when connected via the Always On VPN connection.</string>
+      <string id="TrustedNetworkDetection_Name">[Mandatory] Trusted Network Detection</string>
+      <string id="TrustedNetworkDetection_Explain">Specify a list of the DNS-Suffixes of networks where the Always On VPN connection should NOT be established from.
+
+Each entry must be separated by a line break.     
+      </string>
+      <string id="RegisterDNS_Name">[Optional] Disable DNS registration</string>
+      <string id="RegisterDNS_Explain">Prevents the VPN client from registering it´s IP address with the configured DNS Server. The used DNS zone is configured in the "DNS-Suffix to use when connected" setting.
+
+Default: DNS registration is enabled.
+      </string>
+      <string id="DisableDisconnectButton_Name">[Optional] Disable Disconnect Button</string>
+      <string id="DisableDisconnectButton_Explain">Disables the "Disconnect" button for the VPN connection.
+
+This setting is recommended for device tunnels, as the "Disconnect" button does not work for regular users, which could lead to confusion.
+The setting is only effective for Windows 11 22H2 or later.
+
+Default: The button is disabled.
+      </string>
+      <string id="DisableAdvancedOptionsEditButton_Name">[Optional] Disable Advanced Options Edit Button</string>
+      <string id="DisableAdvancedOptionsEditButton_Explain">Disables the "Advanced Options Edit" button for the VPN connection.
+
+This setting is recommended for device tunnels, as the "Advanced Options Edit" button does not work for regular users, which could lead to confusion.
+The setting is only effective for Windows 11 22H2 or later.
+
+Default: The button is disabled.
+      </string>
+      <string id="DisableClassBasedDefaultRoute_Name">[Optional] Disable Class Based Default Route</string>
+      <string id="DisableClassBasedDefaultRoute_Explain">Disables the usage of class based default routes.
+
+This setting is recommended. 
+
+When class based default routes are disabled, static routes must be specified.
+
+Default: Class based default routes are disabled.
+      </string>
+      <string id="ShowDeviceTunnelInUI_Name">[Optional] Show Device Tunnel in UI</string>
+      <string id="ShowDeviceTunnelInUI_Explain">Shows the connection status of the Devicetunnel in the connections menu in the task bar.
+
+Default: Device Tunnel status is not shown in UI.
+      </string>
+      
+      
+      <string id="Servers_Name">[Mandatory] VPN Server</string>
+      <string id="Servers_Explain">FQDN of the VPN server the devices should connect to.</string>
+
+      <string id="ProfileName_Name">[Mandatory] Profile Name</string>
+      <string id="ProfileName_Explain">Enter a name for this Always On VPN Connection.</string>
+
+      <string id="EapConfig_Name">[Mandatory] EAP Configuration XML</string>
+      <string id="EapConfig_Explain">Enter the EAP Configuration XML for this connection.
+
+To create this configuration, manually create a VPN connection on a test device and configure the EAP settings to your needs.
+Once you got the EAP configuration ready, open a Powershell to extract the EAP configuration XML.
+
+Enter the following commands:
+$vpn = Get-VPNconnection [Name of configured connection]
+$vpn.EapConfigXmlStream.Innerxml
+
+Copy the returned XML data as is into the provided textbox. Since there´s a character limit per line, some line breaks will be necessary.
+Add some linebreaks inbetween XML elements so that the configuration fits the textbox. It does not matter between which elements the line breaks are entered.
+</string>
+ 
+
+      <string id="IKEv2Settings_Name">[Mandatory] IKEv2/IPsec settings</string>
+      <string id="IKEv2Settings_Explain">Specify the custom cryptography settings for the IKEv2 connection.
+      
+Recommendations: 
+Phase 1 Authentication: SHA256
+Phase 1 Encryption: AES_GCM_128
+Phase 2 Authentication: SHA256128
+Phase 2 Encryption: AES128
+PFS Group: ECP256
+DH Group: Group14
+      </string>
+
+      <string id="Routes_Name">[Mandatory] Routes</string>
+      <string id="Routes_Explain">IP destinations that are reachable through the VPN tunnel.
+
+Entries are specified as IP/PREFIXSIZE/METRIC. 
+Examples:
+        10.0.14.3/32/1
+        10.13.5.0/24/1
+
+If no route metric is specified, the route metric defaults to 1.
+
+Specify one entry per line. Separate multiple entries with line breaks after each entry.
+      </string>
+
+      <string id="dropdown_MD596">MD596</string>
+      <string id="dropdown_SHA196">SHA196</string>
+      <string id="dropdown_SHA256128">SHA256128</string>
+      <string id="dropdown_GCMAES128">GCMAES128</string>
+      <string id="dropdown_GCMAES192">GCMAES192</string>
+      <string id="dropdown_GCMAES256">GCMAES256</string>
+
+      <string id="dropdown_DES">DES</string>
+      <string id="dropdown_DES3">DES3</string>
+      <string id="dropdown_AES128">AES128</string>
+      <string id="dropdown_AES192">AES192</string>
+      <string id="dropdown_AES256">AES256</string>
+
+      <string id="dropdown_PFS24">PFS24</string>
+      <string id="dropdown_PFS2">PFS2</string>
+      <string id="dropdown_PFS2048">PFS2048</string>
+      <string id="dropdown_ECP256">ECP256</string>
+      <string id="dropdown_ECP384">ECP384</string>
+      <string id="dropdown_PFSMM">PFSMM</string>
+      <string id="dropdown_PFS1">PFS1</string>
+
+      
+      <string id="dropdown_MD5">MD5</string>
+      <string id="dropdown_SHA1">SHA1</string>
+      <string id="dropdown_SHA256">SHA256</string>
+      <string id="dropdown_SHA384">SHA384</string>
+
+      <string id="dropdown_Group1">Group1</string>
+      <string id="dropdown_Group2">Group2</string>
+      <string id="dropdown_Group14">Group14</string>
+      <string id="dropdown_Group24">Group24</string>
+
+      <string id="dropdown_AES_GCM_128">AES_GCM_128</string>
+      <string id="dropdown_AES_GCM_256">AES_GCM_256</string>
+
+      
+    </stringTable>
+
+
+
+    <presentationTable>
+
+      <presentation id="EapConfig">
+        <multiTextBox refId="EapConfigTextBox">
+          EAP Configuration:
+        </multiTextBox>
+      </presentation>
+
+      <presentation id="DNSSuffix">
+        <textBox refId="DNSSuffixTextBox">
+          <label>DNS Suffix:</label>
+        </textBox>
+      </presentation>
+
+      <presentation id="TrustedNetworkDetection">
+        <multiTextBox refId="TrustedNetworks">
+          Trusted Networks:
+        </multiTextBox>
+      </presentation>
+
+      <presentation id="DisableDisconnectButton">
+      </presentation>
+
+      <presentation id="ShowDeviceTunnelInUI">
+      </presentation>
+
+      <presentation id="DisableClassBasedDefaultRoute">
+      </presentation>
+
+      <presentation id="DisableAdvancedOptionsEditButton">
+      </presentation>
+
+      <presentation id="RegisterDNS">
+      </presentation>
+
+      <presentation id="Servers">
+        <textBox refId="Servers">
+          <label>VPN Server:</label>
+        </textBox>
+      </presentation>
+
+      <presentation id="IKEv2Settings">
+        <dropdownList refId="IntegrityCheckMethod_DropDown" noSort="true">Phase 1 Authentication Method:</dropdownList>
+        <dropdownList refId="EncryptionMethod_DropDown" noSort="true">Phase 1 Encryption Method:</dropdownList>
+        <dropdownList refId="AuthenticationTransformConstants_DropDown" noSort="true">Phase 2 Authentication Method:</dropdownList>
+        <dropdownList refId="CipherTransformConstants_DropDown" noSort="true">Phase 2 Encryption Method:</dropdownList>
+        <dropdownList refId="PfsGroup_DropDown" noSort="true">PFS Group:</dropdownList>
+        <dropdownList refId="DHGroup_DropDown" noSort="true">Diffie-Hellmann Group:</dropdownList>
+      </presentation>
+
+
+      <presentation id="Routes">
+        <multiTextBox refId="Routes">
+          Routes:
+        </multiTextBox>
+      </presentation>
+
+    </presentationTable>
+  </resources>
+</policyDefinitionResources>
