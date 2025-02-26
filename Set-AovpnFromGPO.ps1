@@ -90,9 +90,6 @@ if ($OutProfile -eq "") {
     if ($AllUserConnection) {
         $OutProfile = ".\Latest_AllUserConnection_Profile.xml"
     }
-    else {
-        $OutProfile = ".\Latest_Usertunnel_Profile.xml"
-    }
     
 }
 
@@ -441,7 +438,6 @@ else {
                 #Else compare property values directly
                 elseif (!($desiredvalue -ceq $currentvalue)) {
                     $configdifferences++
-                    Write-Host $desiredvalue
                     Break
                 }
                     
@@ -480,7 +476,7 @@ catch {
 }
 
 # If there were configuration differences, remove outdated connection with ProfileName
-if ($null -ne $match) {
+if (($null -ne $match) -or ($configdifferences -gt 0)) {
     if ($Connection.Connectionstatus -eq "Connected") {
         Write-Host "Disconnecting VPN-Connection $ProfileName..."
         rasdial.exe $ProfileName /disconnect
@@ -491,14 +487,28 @@ if ($null -ne $match) {
     
 }
 
+#At this point there should be no connection with ProfileName configured so check if for some reason a connection still exists
+if($NULL -ne (Get-VpnConnection $ProfileName -AllUserConnection -ErrorAction SilentlyContinue)){
+    Write-Error "Profile $ProfileName already exists and could not be removed. Aborting script."
+    Exit 1
+}
+
 #Create VPN-Connection from Profile.xml
 Write-Host "Creating new connection..."
 
-if ($AllUserConnection) {
-    .\New-AovpnConnection -xmlFilePath $OutProfile -ProfileName $ProfileName -AllUserConnection
+try {
+    if ($AllUserConnection) {
+        .\New-AovpnConnection -xmlFilePath $OutProfile -ProfileName $ProfileName -AllUserConnection
+    }
+    else{
+        .\New-AovpnConnection -xmlFilePath $OutProfile -ProfileName $ProfileName -Devicetunnel
+    }
+    
 }
-else{
-    .\New-AovpnConnection -xmlFilePath $OutProfile -ProfileName $ProfileName -Devicetunnel
+catch {
+    Write-Error $_.Exception.InnerException.Message -ErrorAction Continue
+    Stop-Transcript
+    Exit 1
 }
 
 
