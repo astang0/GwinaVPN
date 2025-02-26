@@ -1,7 +1,4 @@
-## Purpose
-This project allows administrators of On-Prem-Environments who want to deploy Microsoft Always on VPN via Group Policy settings to do so. 
-
-
+# Always on VPN From GPO
 ## How it works
 The values of the settings found in the provided administrative template are stored in the Windows Registry. The provided script then uses the stored values to create a formatted Always on VPN profile (.xml), which is then used to (re-)deploy a VPN connection.
 
