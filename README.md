@@ -14,7 +14,10 @@ A copy of the latest Profile.xml is stored in the same location the script is in
 ## Quickstart
 1. Drop the .admx and .adml file in the respective directories in your domains [Central Store for Group Polices](https://learn.microsoft.com/en-us/troubleshoot/windows-client/group-policy/create-and-manage-central-store).
    
-2. Create a GPO, filter it to a newly created Active Directory Group and configure (at least) the mandatory settings under Computer Configuration/Administrative Templates/Always On VPN From GPO/[Connection Type].
+2. Create a GPO, filter it to a newly created Active Directory Group and configure (at least) the mandatory settings under Computer Configuration/Administrative Templates/Always On VPN From GPO/[Connection Type]:
+
+![DT-Settings.png](https://github.com/astang0/AovpnFromGPO/blob/main/src/DT-Settings.png)
+
 
 3. Create and share a directory that contains both [Set-AovpnFromGPO.ps1](https://github.com/astang0/AovpnFromGPO/blob/main/Set-AovpnFromGPO.ps1) and [New-AovpnConnection.ps1](https://github.com/richardhicks/aovpn/blob/master/New-AovpnConnection.ps1).
 4. Through a scheduling mechanism of your choice do the following regularly (schedule depending on your needs):
@@ -26,6 +29,9 @@ A copy of the latest Profile.xml is stored in the same location the script is in
 5. Add users or computers to your AD group.
    
 6. Done.
+
+7. If you want to remove a conenction from a device, just remove the user/computer from the AD group. 
+   <br/>The script will remove the connection if there are no settings configured in the GPO.
 
 ## Parameters
 #### ```-ProfileName```
@@ -50,8 +56,7 @@ Use if you only want the script to create the Profile.xml and NOT create an AOVP
 ## Supported Features
 | Feature                               |Devicetunnel   |Usertunnel |
 | :---                                  |    :----:     |   :---:   |
-| VPN-Protocol IKEv2                    |     ✅        |    ❌      |
-| VPN-Protocol SSTP                     | —             |   ✅      |
+| VPN-Protocols                         |IKEv2/IPsec    |    SSTP      |
 | Set Custom Cryptography Settings      |     ✅        |    ❌      |
 | Define Custom VPN-Server              | ✅            |   ✅      |
 | Define Custom IP Routes               | ✅            |   ✅      |
