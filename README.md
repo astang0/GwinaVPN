@@ -30,8 +30,10 @@ A copy of the latest Profile.xml is stored in the same location the script is in
    
 6. Done.
 
-7. If you want to remove a conenction from a device, just remove the user/computer from the AD group. 
+7. If you want to remove a connection from a device, just remove the user/computer from the AD group. 
    <br/>The script will remove the connection if there are no settings configured in the GPO.
+
+For more information refer to the wiki.
 
 ## Parameters
 #### ```-ProfileName```
