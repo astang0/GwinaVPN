@@ -1,12 +1,10 @@
 # Always on VPN From GPO
 ## How it works
-The values of the settings found in the provided administrative template are stored in the Windows Registry. The provided script then uses the stored values to create a formatted Always on VPN profile (.xml), which is then used to (re-)deploy a VPN connection.
+The values of the settings found in the provided administrative template are stored in the Windows Registry. The provided script then uses the stored values to create an Always on VPN profile, which is then used to (re-)deploy a VPN connection.
 
 Before creating a profile, the script validates that all mandatory settings have been set. This prevents administrators from pushing out invalid VPN profiles.
 
-After creating the profile, the script by default uses Richard Hicks' [New-AovpnConnection.ps1](https://github.com/richardhicks/aovpn/blob/master/New-AovpnConnection.ps1) to create a VPN connection from the Profile.xml. I recommend that you use his script since it removes a few Registry artifacts of older connections before deploying a new one. If you decide against it, however, you´ll have to edit the provided script to use your own VPN creation script instead. It is assumed that the scripts are located in the same directory.
-
-A copy of the latest Profile.xml is stored in the same location the script is in by default.
+The profile is then deployed as a new Always On VPN connection
 
 ## Quickstart
 1. Drop the .admx and .adml file in the respective directories in your domains [Central Store for Group Polices](https://learn.microsoft.com/en-us/troubleshoot/windows-client/group-policy/create-and-manage-central-store).
@@ -16,16 +14,16 @@ A copy of the latest Profile.xml is stored in the same location the script is in
 ![DT-Settings.png](https://github.com/astang0/AovpnFromGPO/blob/main/src/DT-Settings.png)
 
 
-3. Create and share a directory that contains both [Set-AovpnFromGPO.ps1](https://github.com/astang0/AovpnFromGPO/blob/main/Set-AovpnFromGPO.ps1) and [New-AovpnConnection.ps1](https://github.com/richardhicks/aovpn/blob/master/New-AovpnConnection.ps1).
+3. Create and share a directory that contains [Set-AovpnFromGPO.ps1](https://github.com/astang0/AovpnFromGPO/blob/main/Set-AovpnFromGPO.ps1).
 4. Through a scheduling mechanism of your choice do the following regularly (schedule depending on your needs):
 
-    3.1 Sync the contents of the shared folder to a local directory on the devices that AOVPN should be deployed on.
+    4.1 Sync the contents of the shared folder to a local directory on the devices that AOVPN should be deployed on.
 
-    3.2 Run Set-AovpnFromGPO.ps1 in SYSTEM context with params of your choice.
+    4.2 Run Set-AovpnFromGPO.ps1 in SYSTEM context with params of your choice.
 
-5. Add users or computers to your AD group.
+5. Add users or computers to your AD group and wait until all settings have been synced.
    
-6. Done.
+6. Done. Now the Always On VPN Connection is regularly updated according to the settings that have been set through Group Policy.
 
 7. If you want to remove a connection from a device, just remove the user/computer from the AD group. 
    <br/>The script will remove the connection if there are no settings configured in the GPO.
@@ -46,10 +44,10 @@ Use if you want to deploy an Always on VPN Usertunnel. This will deploy the conn
 Writes the output of the scripts latest run to a specified file. Useful for troubleshooting purposes.
 
 #### ```-OutProfile``` (Alias: ```-OP```)
-Use if you want to specify the output location and file name of the created Profile.xml, otherwise it will be saved to the scripts root directory.
+Use if you want to specify the output location and file name of the created Profile.xml.
 
 #### ```-OutProfileOnly``` (Alias: ```-OPO```)
-Use if you only want the script to create the Profile.xml and NOT create an AOVPN connection from it.
+Use if you only want the script to create the Profile.xml and NOT create an AOVPN connection from it. Works only if used with ```-OutProfile```-Parameter.
 
 
 ## Supported Features

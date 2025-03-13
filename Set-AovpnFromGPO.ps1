@@ -5,8 +5,6 @@ Creates an Always On VPN Profile based on values stored in the registry.
 .DESCRIPTION
 This script uses values stored in the registry to build an AOVPN-Profile.
 The profile is then used to create a new VPN connection.
-The script assumes that you use Richard Hicks' New-AovpnConnection.ps1 to create the VPN-Connection.
-It also assumes that all necessary files are stored in the same directory. 
 
 .PARAMETER Devicetunnel
 Use if new connection is a Devicetunnel.
@@ -21,7 +19,7 @@ Name of the connection.
 Creates a transcript of last run in specified file.
 
 .PARAMETER OutProfile
-Writes the created profile to a specified file, otherwise it is written to .\Latest_[ConnectionType]_Profile.xml 
+Writes the created profile to a specified file. If not set, no file is created. 
 
 .PARAMETER OutProfileOnly
 Prevents the new VPN connection from being created.
@@ -74,24 +72,13 @@ if ($DeviceTunnel -or $AllUserConnection) {
     $CurrentPrincipal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
     If ($CurrentPrincipal.Identities.IsSystem -ne $True) {
         Write-Warning "Script must run as System when using '-Devicetunnel' or '-AllUserConnection'."
-        Stop-Transcript
+        Stop-Transcript -ErrorAction SilentlyContinue
         Exit 1
     }
 }
 
 #Change directory to directory that the script was executed in
 Set-Location $PSScriptRoot
-
-#Set default OutProfile-Path
-if ($OutProfile -eq "") {
-    if ($DeviceTunnel) {
-        $OutProfile = ".\Latest_Devicetunnel_Profile.xml"
-    }
-    if ($AllUserConnection) {
-        $OutProfile = ".\Latest_AllUserConnection_Profile.xml"
-    }
-    
-}
 
 <#--------------------Start Declaring Functions---------------------#>
 <#--------------------Declare Function to build Profile.xml from registry settings---------------------#>
@@ -329,6 +316,153 @@ function Format-XML ([xml]$xml, $indent = 3, $format = "Indented") {
     Write-Output $StringWriter.ToString()
 }
 
+<#-------------------Declare function to deploy the VPN connection-----------------------------------#>
+function DeployAovpnConnection {
+
+    $ProfileNameEscaped = $ProfileName -replace ' ', '%20'
+
+    ## Registry Clean-up by Richard Hicks
+
+    $BasePath = "HKLM:\SOFTWARE\Microsoft\EnterpriseResourceManager\Tracked"
+    $Tracked = Get-ChildItem -Path $BasePath
+
+    ForEach ($Item in $Tracked) {
+
+        Write-Verbose "Processing $(Convert-Path $Item.PsPath)..."
+        $Key = Get-ChildItem $Item.PsPath -Recurse | Where-Object { $_ | Get-ItemProperty -Include "Path*" }
+        $PathCount = ($Key.Property -Match "Path\d+").Count
+        Write-Verbose "Found a total of $PathCount Path* entries."
+
+        # // There may be more than 1 matching key
+        ForEach ($K in $Key) {
+
+            $Path = $K.Property | Where-Object { $_ -Match "Path\d+" }
+            $Count = $Path.Count
+            Write-Verbose "Found $Count Path* entries under $($K.Name)."
+
+            ForEach ($P in $Path) {
+
+                Write-Verbose "Testing $P..."
+                $Value = $K.GetValue($P)
+
+                If ($Value -Match "$($ProfileNameEscaped)$") {
+
+                    Write-Verbose "Removing $Value under $($K.Name)..."
+                    $K | Remove-ItemProperty -Name $P
+
+                    # // Decrement count
+                    $Count--
+
+                }
+
+            } # // ForEach $P in $Path
+
+            #  // Update count
+            Write-Verbose "Setting count to $Count..."
+            $K | Set-ItemProperty -Name Count -Value $Count
+
+        } # // ForEach $K in $Key
+
+    } # // ForEach $Item in $Tracked
+
+    # // Remove registry artifacts from NetworkList\Profiles
+    $Path = 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\NetworkList\Profiles\'
+    Write-Verbose "Searching $Path for VPN profile ""$ProfileName""..."
+    $Key = Get-Childitem -Path $Path | Where-Object { (Get-ItemPropertyValue $_.PsPath -Name Description) -eq $ProfileName }
+
+    If ($Key) {
+
+        Write-Verbose "Removing $($Key.Name)..."
+        $Key | Remove-Item
+
+    }
+
+    Else {
+
+        Write-Verbose "No profiles found matching ""$ProfileName"" in the network list."
+
+    }
+
+    # // Remove registry artifacts from RasMan\Config
+    $Path = 'HKLM:\System\CurrentControlSet\Services\RasMan\Config\'
+    $Name = 'AutoTriggerDisabledProfilesList'
+
+    Write-Verbose "Searching $Name under $Path for VPN profile called ""$ProfileName""..."
+
+    Try {
+
+        # // Get the current registry values as an array of strings
+        [string[]]$Current = Get-ItemPropertyValue -Path $Path -Name $Name -ErrorAction Stop
+
+    }
+
+    Catch {
+
+        Write-Verbose "$Name does not exist under $Path. No action required."
+
+    }
+
+    If ($Current) {
+
+        #// Create ordered hashtable
+        $List = [Ordered]@{}
+        $Current | ForEach-Object { $List.Add("$($_.ToLower())", $_) }
+
+        # //Search hashtable for matching VPN profile and remove if present
+        If ($List.Contains($ProfileName)) {
+
+            Write-Verbose "Profile found. Removing entry..."
+            $List.Remove($ProfileName)
+            Write-Verbose "Updating the registry..."
+            Set-ItemProperty -Path $Path -Name $Name -Value $List.Values
+
+        }
+
+    }
+
+    Else {
+
+        Write-Verbose "No profiles found matching ""$ProfileName""."
+
+    }
+
+    ## End Clean-up and start deployment
+
+    $ProfileNameEscaped = $ProfileName -replace ' ', '%20'
+
+    $ProfileToDeploy = @("$($ProfileFormatted)")
+    $ProfileToDeploy = $ProfileToDeploy -replace '<', '&lt;'
+    $ProfileToDeploy = $ProfileToDeploy -replace '>', '&gt;'
+    $ProfileToDeploy = $ProfileToDeploy -replace '"', '&quot;'
+
+    $nodeCSPURI = './Vendor/MSFT/VPNv2'
+    $namespaceName = "root\cimv2\mdm\dmmap"
+    $className = "MDM_VPNv2_01"
+
+    $session = New-CimSession
+
+    try {
+        $newInstance = New-Object Microsoft.Management.Infrastructure.CimInstance $className, $namespaceName
+        $property = [Microsoft.Management.Infrastructure.CimProperty]::Create("ParentID", "$nodeCSPURI", 'String', 'Key')
+        $newInstance.CimInstanceProperties.Add($property)
+        $property = [Microsoft.Management.Infrastructure.CimProperty]::Create("InstanceID", "$ProfileNameEscaped", 'String', 'Key')
+        $newInstance.CimInstanceProperties.Add($property)
+        $property = [Microsoft.Management.Infrastructure.CimProperty]::Create("ProfileXML", "$ProfileToDeploy", 'String', 'Property')
+        $newInstance.CimInstanceProperties.Add($property)
+
+        $session.CreateInstance($namespaceName, $newInstance)
+        $Message = "Created $ProfileName profile."
+        Write-Host "$Message"
+    }
+    catch [Exception] {
+        $Message = "Unable to create $ProfileName profile: $_"
+        Write-Host "$Message"
+        exit
+    }
+    $Message = "Complete."
+    Write-Host "$Message"
+}
+
 <#--------------------End Declaring Functions---------------------#>
 
 
@@ -353,7 +487,7 @@ if ($NULL -eq $desiredproperties) {
     Write-Host "No settings were configured. Checking if profile with name $ProfileName exists..."
     $Connection = Get-VpnConnection -AllUserConnection -Name $ProfileName -ErrorAction SilentlyContinue
 
-    if($null -ne $Connection){
+    if ($null -ne $Connection) {
         
         Write-Host 
         if ($Connection.Connectionstatus -eq "Connected") {
@@ -370,7 +504,7 @@ if ($NULL -eq $desiredproperties) {
         
         
     }
-    else{
+    else {
         Write-Host "Profile $ProfileName does not exist. Exiting..."
     }
     Stop-Transcript
@@ -460,20 +594,23 @@ else {
 $ProfileXML = BuildConfigfromGPO -Path $desiredconfregpath
 $ProfileFormatted = Format-XML $ProfileXML.OuterXml
     
-#Write profile to specified OutProfile-Path if wanted, else use default Path
-try {
+#Write profile to specified OutProfile-Path if wanted
+if ($OutProfile -notlike "") {
+    try {
         
-    $ProfileFormatted | Out-File $OutProfile 
-    Write-Host "Created Profile.xml in Path $OutProfile"
-
-    #Stop if OutProfileOnly is set
-    if ($OutProfileOnly) {
-        Exit 0
+        $ProfileFormatted | Out-File $OutProfile 
+        Write-Host "Created Profile.xml in Path $OutProfile"
+    
+        #Stop if OutProfileOnly is set
+        if ($OutProfileOnly) {
+            Exit 0
+        }
+    }
+    catch {
+        Write-Error "Profile $ProfileName could not be created in Path $OutProfile." -ErrorAction Stop
     }
 }
-catch {
-    Write-Error "Profile $ProfileName could not be created in Path $OutProfile." -ErrorAction Stop
-}
+
 
 # If there were configuration differences, remove outdated connection with ProfileName
 if (($null -ne $match) -or ($configdifferences -gt 0)) {
@@ -488,7 +625,7 @@ if (($null -ne $match) -or ($configdifferences -gt 0)) {
 }
 
 #At this point there should be no connection with ProfileName configured so check if for some reason a connection still exists
-if($NULL -ne (Get-VpnConnection $ProfileName -AllUserConnection -ErrorAction SilentlyContinue)){
+if ($NULL -ne (Get-VpnConnection $ProfileName -AllUserConnection -ErrorAction SilentlyContinue)) {
     Write-Error "Profile $ProfileName already exists and could not be removed. Aborting script."
     Exit 1
 }
@@ -497,17 +634,13 @@ if($NULL -ne (Get-VpnConnection $ProfileName -AllUserConnection -ErrorAction Sil
 Write-Host "Creating new connection..."
 
 try {
-    if ($AllUserConnection) {
-        .\New-AovpnConnection -xmlFilePath $OutProfile -ProfileName $ProfileName -AllUserConnection
-    }
-    else{
-        .\New-AovpnConnection -xmlFilePath $OutProfile -ProfileName $ProfileName -Devicetunnel
-    }
+   
+    DeployAovpnConnection
     
 }
 catch {
     Write-Error $_.Exception.InnerException.Message -ErrorAction Continue
-    Stop-Transcript
+    Stop-Transcript -ErrorAction SilentlyContinue
     Exit 1
 }
 
@@ -523,7 +656,7 @@ foreach ($Property in $desiredproperties) {
     Copy-ItemProperty -Path $desiredconfregpath -Destination $currentconfregpath -Name $Property
 }
 
-Stop-Transcript
+Stop-Transcript -ErrorAction SilentlyContinue
 
 
 
