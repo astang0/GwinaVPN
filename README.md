@@ -56,6 +56,7 @@ Use if you only want the script to create the Profile.xml and NOT create an AOVP
 | VPN-Protocols                         |IKEv2/IPsec    |    SSTP      |
 | Set Custom Cryptography Settings      |     ✅        |    ❌      |
 | Define Custom VPN-Server              | ✅            |   ✅      |
+| Define Custom Domain Name Resolution Policies| ✅     |   ✅      |
 | Define Custom IP Routes               | ✅            |   ✅      |
 | Define Custom DNS-Suffix when connected|     ✅        |    ✅      |
 | Define Trusted Networks               | ✅            |   ✅      |
@@ -64,6 +65,5 @@ Use if you only want the script to create the Profile.xml and NOT create an AOVP
 | Show/Hide Disconnect Button           | ✅            |   ✅      |
 | Show/Hide Devicetunnel in UI          |       ✅      |    —       |
 | Allow Class Based Default Route       |     ❌        |    ❌      |
-| Define Custom VPN-Server              | ✅            |   ✅      |
 |Authentication Methods                 | Machine Certificate |   EAP|
 

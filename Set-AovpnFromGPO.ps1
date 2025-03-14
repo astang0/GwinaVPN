@@ -53,6 +53,7 @@ Param (
 
 #Start logging if wanted
 if ("" -ne $TranscriptLocation) {
+    $transcript = $true
     Start-Transcript -Path $TranscriptLocation -Force
 }
 
@@ -72,7 +73,7 @@ if ($DeviceTunnel -or $AllUserConnection) {
     $CurrentPrincipal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
     If ($CurrentPrincipal.Identities.IsSystem -ne $True) {
         Write-Warning "Script must run as System when using '-Devicetunnel' or '-AllUserConnection'."
-        Stop-Transcript -ErrorAction SilentlyContinue
+        if($transcript){Stop-Transcript}
         Exit 1
     }
 }
@@ -259,6 +260,41 @@ function BuildConfigfromGPO {
             
 
         }
+
+        #Each DNS-Server entry is added as separate Node with multiple child nodes
+        if ($NULL -ne $profileconf.DomainNameInformation) {
+            foreach ($Entry in $profileconf.DomainNameInformation) {
+                $SplitEntry = $Entry -split "/"
+    
+                $DomainName = $SplitEntry[0]
+                $DnsServers = $SplitEntry[1]
+    
+        
+                #Create Domain Name Information Node
+                $newdni = $ProfileXML.CreateElement("DomainNameInformation")
+        
+                #Add Domain Name
+                $addDomain = $ProfileXML.CreateElement("DomainName")
+                $addDomain.InnerText = $DomainName
+                $newdni.AppendChild($addDomain) | Out-Null
+    
+                #Add DnsServer if configured
+                if ($NULL -ne $DnsServers) {
+                    $addDnsServers = $ProfileXML.CreateElement("DnsServers")
+                    $addDnsServers.InnerText = $DnsServers
+                    $newdni.AppendChild($addDnsServers) | Out-Null
+                }
+    
+                #Append new Dni to Profile.xml
+                $ProfileXML.VPNProfile.AppendChild($newdni) | Out-Null
+                
+                
+    
+            }
+        }
+        
+
+
 
         Return $ProfileXML
     }
@@ -507,7 +543,7 @@ if ($NULL -eq $desiredproperties) {
     else {
         Write-Host "Profile $ProfileName does not exist. Exiting..."
     }
-    Stop-Transcript
+    if($transcript){Stop-Transcript}
     Exit 0
 }
 
@@ -640,7 +676,8 @@ try {
 }
 catch {
     Write-Error $_.Exception.InnerException.Message -ErrorAction Continue
-    Stop-Transcript -ErrorAction SilentlyContinue
+    if($transcript){Stop-Transcript}
+    
     Exit 1
 }
 
@@ -656,7 +693,8 @@ foreach ($Property in $desiredproperties) {
     Copy-ItemProperty -Path $desiredconfregpath -Destination $currentconfregpath -Name $Property
 }
 
-Stop-Transcript -ErrorAction SilentlyContinue
+if($transcript){Stop-Transcript}
+Exit 0
 
 
 

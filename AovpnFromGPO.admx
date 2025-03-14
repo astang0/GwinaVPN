@@ -444,6 +444,23 @@
       </elements>
     </policy>
 
+    <!--  List of DomainNameInformation DT-->
+    <policy
+      name="DniDT"
+      class="Machine"
+      displayName="$(string.Dni_Name)"
+      explainText="$(string.Dni_Explain)"
+      presentation="$(presentation.Dni)"
+      key="SOFTWARE\Policies\AovpnFromGPO\Devicetunnel"
+    >
+
+      <parentCategory ref="DeviceTunnel" />
+      <supportedOn ref="windows:SUPPORTED_Windows_10_0_NOSERVER_ENTERPRISE_EDUCATION" />
+      <elements>
+        <multiText id="Dni" valueName="DomainNameInformation" required="true" />
+      </elements>
+    </policy>
+
     <!-- ######################  START ALL USER CONNECTION POLICIES  ######################  -->
 
   
@@ -620,6 +637,24 @@
         <multiText id="Routes" valueName="Routes" required="true" />
       </elements>
     </policy>
+
+     <!--  List of DomainNameInformation AUC-->
+    <policy
+      name="DniAUC"
+      class="Machine"
+      displayName="$(string.Dni_Name)"
+      explainText="$(string.Dni_Explain)"
+      presentation="$(presentation.Dni)"
+      key="SOFTWARE\Policies\AovpnFromGPO\AllUserConnection"
+    >
+
+      <parentCategory ref="AllUserConnection" />
+      <supportedOn ref="windows:SUPPORTED_Windows_10_0_NOSERVER_ENTERPRISE_EDUCATION" />
+      <elements>
+        <multiText id="Dni" valueName="DomainNameInformation" required="true" />
+      </elements>
+    </policy>
+
 
   </policies>
 </policyDefinitions>
