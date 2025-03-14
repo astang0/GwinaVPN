@@ -123,6 +123,24 @@ If no route metric is specified, the route metric defaults to 1.
 Specify one entry per line. Separate multiple entries with line breaks after each entry.
       </string>
 
+      <string id="Dni_Name">[Optional] Domain Name Information Settings</string>
+      <string id="Dni_Explain">By default, the Windows VPN-Client will try to use the same DNS server that the VPN server is configured to use.
+To change that behavior, specify FQDNs or DNS-Suffixes and corresponding DNS-Servers to use when resolving matching FQDNs.
+
+Entries are specified as FQDN/DNS-SERVERS.
+Examples:
+        To match specific host:
+        DC01.adatum.com/192.168.4.3
+
+        To match all hostnames with DNS suffix ".contoso.com" specify multiple DNS-Servers:
+        .contoso.com/192.168.150.9,192.168.150.8
+
+        To specify an exception which causes the specified host to always be resolved through the DNS, don´t specify DNS-Servers:
+        FS04.contoso.com
+
+Specify one entry per line. Separate multiple entries with line breaks after each entry.
+</string>
+
       <string id="dropdown_MD596">MD596</string>
       <string id="dropdown_SHA196">SHA196</string>
       <string id="dropdown_SHA256128">SHA256128</string>
@@ -217,6 +235,12 @@ Specify one entry per line. Separate multiple entries with line breaks after eac
       <presentation id="Routes">
         <multiTextBox refId="Routes">
           Routes:
+        </multiTextBox>
+      </presentation>
+
+      <presentation id="Dni">
+        <multiTextBox refId="Dni">
+          Domain Name Information Settings:
         </multiTextBox>
       </presentation>
 
