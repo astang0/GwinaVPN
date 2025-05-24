@@ -73,7 +73,7 @@ if ($DeviceTunnel -or $AllUserConnection) {
     $CurrentPrincipal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
     If ($CurrentPrincipal.Identities.IsSystem -ne $True) {
         Write-Warning "Script must run as System when using '-Devicetunnel' or '-AllUserConnection'."
-        if($transcript){Stop-Transcript}
+        if ($transcript) { Stop-Transcript }
         Exit 1
     }
 }
@@ -224,7 +224,7 @@ function BuildConfigfromGPO {
     
         #Each Route is added as separate Node with multiple child nodes
         foreach ($Route in $profileconf.Routes) {
-            $SplitRoute = $Route -split "/"
+            $SplitRoute = $Route -split ";"
 
             $RouteIPAddress = $SplitRoute[0]
             $RouteMask = $SplitRoute[1]
@@ -261,10 +261,30 @@ function BuildConfigfromGPO {
 
         }
 
+        #Add Traffic Filters
+        if($NULL -ne $profileconf.TrafficFiltersXML){
+
+            #Join each line to string then split string into traffic filter xml elements
+            $TrafficFiltersXMLString = $profileconf.TrafficFiltersXml -join "`n"
+            $TrafficFiltersXMLSplit = $TrafficFiltersXMLString -split "(?<=</TrafficFilter>)" | Select-Object -SkipLast 1
+
+            #Create new XML Element for each traffic filter node and then append that node to Profile.xml
+            foreach($Entry in $TrafficFiltersXMLSplit){
+                $NewTrafficFiltersXMLDoc = New-Object System.Xml.XmlDocument
+                $NewTrafficFiltersXMLDoc.LoadXml($Entry)
+                $NewTrafficFiltersXMLElement = $NewTrafficFiltersXMLDoc.DocumentElement
+
+                $NewTrafficFiltersXML = $ProfileXML.CreateElement("TrafficFilter")
+                $NewTrafficFiltersXML.InnerXml = $NewTrafficFiltersXMLElement.InnerXml
+                $ProfileXML.VPNProfile.AppendChild($NewTrafficFiltersXML) | Out-Null
+            }
+        }
+        
+
         #Each DNS-Server entry is added as separate Node with multiple child nodes
         if ($NULL -ne $profileconf.DomainNameInformation) {
             foreach ($Entry in $profileconf.DomainNameInformation) {
-                $SplitEntry = $Entry -split "/"
+                $SplitEntry = $Entry -split ";"
     
                 $DomainName = $SplitEntry[0]
                 $DnsServers = $SplitEntry[1]
@@ -292,9 +312,6 @@ function BuildConfigfromGPO {
     
             }
         }
-        
-
-
 
         Return $ProfileXML
     }
@@ -543,7 +560,7 @@ if ($NULL -eq $desiredproperties) {
     else {
         Write-Host "Profile $ProfileName does not exist. Exiting..."
     }
-    if($transcript){Stop-Transcript}
+    if ($transcript) { Stop-Transcript }
     Exit 0
 }
 
@@ -617,6 +634,7 @@ else {
             # If there are no differences between the desired and the currently configured settings, exit script
             if ($configdifferences -eq 0) {
                 Write-Host "Configurations are identical. No changes will be made to the VPN-Connection $ProfileName."
+                if ($transcript) { Stop-Transcript }
                 Exit 0
             }
                 
@@ -639,6 +657,7 @@ if ($OutProfile -notlike "") {
     
         #Stop if OutProfileOnly is set
         if ($OutProfileOnly) {
+            if ($transcript) { Stop-Transcript }
             Exit 0
         }
     }
@@ -663,6 +682,7 @@ if (($null -ne $match) -or ($configdifferences -gt 0)) {
 #At this point there should be no connection with ProfileName configured so check if for some reason a connection still exists
 if ($NULL -ne (Get-VpnConnection $ProfileName -AllUserConnection -ErrorAction SilentlyContinue)) {
     Write-Error "Profile $ProfileName already exists and could not be removed. Aborting script."
+    if ($transcript) { Stop-Transcript }
     Exit 1
 }
 
@@ -676,7 +696,7 @@ try {
 }
 catch {
     Write-Error $_.Exception.InnerException.Message -ErrorAction Continue
-    if($transcript){Stop-Transcript}
+    if ($transcript) { Stop-Transcript }
     
     Exit 1
 }
@@ -693,7 +713,7 @@ foreach ($Property in $desiredproperties) {
     Copy-ItemProperty -Path $desiredconfregpath -Destination $currentconfregpath -Name $Property
 }
 
-if($transcript){Stop-Transcript}
+if ($transcript) { Stop-Transcript }
 Exit 0
 
 

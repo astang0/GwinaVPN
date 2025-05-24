@@ -461,6 +461,23 @@
       </elements>
     </policy>
 
+     <!--  List of TrafficFilters DT-->
+    <policy
+      name="TrafficFiltersXmlDT"
+      class="Machine"
+      displayName="$(string.TrafficFiltersXml_Name)"
+      explainText="$(string.TrafficFiltersXml_Explain)"
+      presentation="$(presentation.TrafficFiltersXml)"
+      key="SOFTWARE\Policies\AovpnFromGPO\Devicetunnel"
+    >
+
+      <parentCategory ref="DeviceTunnel" />
+      <supportedOn ref="windows:SUPPORTED_Windows_10_0_NOSERVER_ENTERPRISE_EDUCATION" />
+      <elements>
+        <multiText id="TrafficFiltersXml" valueName="TrafficFiltersXml" required="true" />
+      </elements>
+    </policy>
+
     <!-- ######################  START ALL USER CONNECTION POLICIES  ######################  -->
 
   
@@ -652,6 +669,23 @@
       <supportedOn ref="windows:SUPPORTED_Windows_10_0_NOSERVER_ENTERPRISE_EDUCATION" />
       <elements>
         <multiText id="Dni" valueName="DomainNameInformation" required="true" />
+      </elements>
+    </policy>
+
+    <!--  List of TrafficFilters AUC-->
+    <policy
+      name="TrafficFiltersXmlAUC"
+      class="Machine"
+      displayName="$(string.TrafficFiltersXml_Name)"
+      explainText="$(string.TrafficFiltersXml_Explain)"
+      presentation="$(presentation.TrafficFiltersXml)"
+      key="SOFTWARE\Policies\AovpnFromGPO\AllUserConnection"
+    >
+
+      <parentCategory ref="AllUserConnection" />
+      <supportedOn ref="windows:SUPPORTED_Windows_10_0_NOSERVER_ENTERPRISE_EDUCATION" />
+      <elements>
+        <multiText id="TrafficFiltersXml" valueName="TrafficFiltersXml" required="true" />
       </elements>
     </policy>
 

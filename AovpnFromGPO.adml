@@ -29,10 +29,6 @@ This connection type requires Windows 10/11 Enterprise or Education.</string>
       
 
 
-
-      <string id="UpdatesEnabled_Name">[Mandatory] Enable automatic configuration updates</string>
-      <string id="UpdatesEnabled_Explain">Enable/Disable automatic configuration updates</string>
-
       <string id="DNSSuffix_Name">[Mandatory] DNS-Suffix to use when connected</string>
       <string id="DNSSuffix_Explain">Specify the DNS-Suffix that should be used when connected via the Always On VPN connection.</string>
       <string id="TrustedNetworkDetection_Name">[Mandatory] Trusted Network Detection</string>
@@ -113,10 +109,10 @@ DH Group: Group14
       <string id="Routes_Name">[Mandatory] Routes</string>
       <string id="Routes_Explain">IP destinations that are reachable through the VPN tunnel.
 
-Entries are specified as IP/PREFIXSIZE/METRIC. 
+Entries are specified as IP;PREFIXSIZE;METRIC. 
 Examples:
-        10.0.14.3/32/1
-        10.13.5.0/24/1
+        10.0.14.3;32;1
+        10.13.5.0;24;1
 
 If no route metric is specified, the route metric defaults to 1.
 
@@ -127,18 +123,26 @@ Specify one entry per line. Separate multiple entries with line breaks after eac
       <string id="Dni_Explain">By default, the Windows VPN-Client will try to use the same DNS server that the VPN server is configured to use.
 To change that behavior, specify FQDNs or DNS-Suffixes and corresponding DNS-Servers to use when resolving matching FQDNs.
 
-Entries are specified as FQDN/DNS-SERVERS.
+Entries are specified as FQDN;DNS-SERVERS.
 Examples:
         To match specific host:
-        DC01.adatum.com/192.168.4.3
+        DC01.adatum.com;192.168.4.3
 
         To match all hostnames with DNS suffix ".contoso.com" specify multiple DNS-Servers:
-        .contoso.com/192.168.150.9,192.168.150.8
+        .contoso.com;192.168.150.9,192.168.150.8
 
         To specify an exception which causes the specified host to always be resolved through the DNS, don´t specify DNS-Servers:
         FS04.contoso.com
 
 Specify one entry per line. Separate multiple entries with line breaks after each entry.
+</string>
+
+<string id="TrafficFiltersXml_Name">[Optional] Traffic Filters</string>
+<string id="TrafficFiltersXml_Explain">Set Traffic Filters to implement further access control. 
+
+Enter the Traffic Filter XML into the textbox (up to 50). Using traffic filters will create an implicit deny all rule, meaning that no traffic will be allowed through the VPN connection if it is not specifically allowed through a traffic filter rule. 
+
+For guidance on how to implement traffic filters refer to the wiki.
 </string>
 
       <string id="dropdown_MD596">MD596</string>
@@ -241,6 +245,12 @@ Specify one entry per line. Separate multiple entries with line breaks after eac
       <presentation id="Dni">
         <multiTextBox refId="Dni">
           Domain Name Information Settings:
+        </multiTextBox>
+      </presentation>
+
+      <presentation id="TrafficFiltersXml">
+        <multiTextBox refId="TrafficFiltersXml">
+          Traffic Filters:
         </multiTextBox>
       </presentation>
 
