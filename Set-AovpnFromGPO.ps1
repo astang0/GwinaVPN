@@ -436,24 +436,6 @@ function DeployAovpnConnection {
 
     }
 
-    # // Remove registry artifacts from RasMan\Config
-    $Path = 'HKLM:\System\CurrentControlSet\Services\RasMan\Config\'
-    $Name = 'AutoTriggerDisabledProfilesList'
-
-    Write-Verbose "Searching $Name under $Path for VPN profile called ""$ProfileName""..."
-
-    Try {
-
-        # // Get the current registry values as an array of strings
-        [string[]]$Current = Get-ItemPropertyValue -Path $Path -Name $Name -ErrorAction Stop
-
-    }
-
-    Catch {
-
-        Write-Verbose "$Name does not exist under $Path. No action required."
-
-    }
 
     If ($Current) {
 
