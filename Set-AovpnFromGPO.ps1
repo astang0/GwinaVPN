@@ -6,11 +6,6 @@ Creates an Always On VPN Profile based on values stored in the registry.
 This script uses values stored in the registry to build an AOVPN-Profile.
 The profile is then used to create a new VPN connection.
 
-.PARAMETER ProfileName
-Name of the connection.
-
-.PARAMETER TranscriptLocation
-Creates a transcript of last run in specified file.
 
 .PARAMETER OutProfile
 Writes the created profile to a specified file. If not set, no file is created. 
@@ -28,10 +23,7 @@ In this case, only the profile is written to the with '-OutProfile' specified fi
 Param (
 
     
-    [Parameter(Mandatory = $true)]
-    [string]$ProfileName,
-    [Alias("TL")]
-    [string]$TranscriptLocation,
+   
     [Parameter(HelpMessage = 'Enter an OutFile-Path for the created Profile.')]
     [Alias("OP")]
     [string]$OutProfile,
@@ -210,6 +202,7 @@ function Build-ConfigfromGPO {
     
     #Each Route is added as separate Node with multiple child nodes
     foreach ($Route in $profileconf.Routes) {
+        $Route = $Route.Replace(" ","")
         $SplitRoute = $Route -split ";"
 
         $RouteIPAddress = $SplitRoute[0]
@@ -310,11 +303,11 @@ function Test-AovpnConfiguration {
 
     [CmdletBinding()]
     param (
-        [string]
-        $path
+        [string]$path,
+        [bool]$DeviceTunnel
     )
     
-    $mandatorysettings = @("Routes", "TrustedNetworkDetection", "Servers", "DnsSuffix")
+    $mandatorysettings = @("Routes", "TrustedNetworkDetection", "Servers", "DnsSuffix", "ProfileName")
     
     if ($DeviceTunnel) {
         $mandatorysettings = $mandatorysettings + @("AuthenticationTransformConstants", "CipherTransformConstants", "EncryptionMethod", "IntegrityCheckMethod", 
@@ -357,96 +350,9 @@ function Format-XML ([xml]$xml, $indent = 3, $format = "Indented") {
 <#-------------------Declare function to deploy the VPN connection-----------------------------------#>
 function Add-AovpnConnection {
 
-    $ProfileNameEscaped = $ProfileName -replace ' ', '%20'
-
-    ## Registry Clean-up by Richard Hicks
-
-    $BasePath = "HKLM:\SOFTWARE\Microsoft\EnterpriseResourceManager\Tracked"
-    $Tracked = Get-ChildItem -Path $BasePath
-
-    ForEach ($Item in $Tracked) {
-
-        Write-Verbose "Processing $(Convert-Path $Item.PsPath)..."
-        $Key = Get-ChildItem $Item.PsPath -Recurse | Where-Object { $_ | Get-ItemProperty -Include "Path*" }
-        $PathCount = ($Key.Property -Match "Path\d+").Count
-        Write-Verbose "Found a total of $PathCount Path* entries."
-
-        # // There may be more than 1 matching key
-        ForEach ($K in $Key) {
-
-            $Path = $K.Property | Where-Object { $_ -Match "Path\d+" }
-            $Count = $Path.Count
-            Write-Verbose "Found $Count Path* entries under $($K.Name)."
-
-            ForEach ($P in $Path) {
-
-                Write-Verbose "Testing $P..."
-                $Value = $K.GetValue($P)
-
-                If ($Value -Match "$($ProfileNameEscaped)$") {
-
-                    Write-Verbose "Removing $Value under $($K.Name)..."
-                    $K | Remove-ItemProperty -Name $P
-
-                    # // Decrement count
-                    $Count--
-
-                }
-
-            } # // ForEach $P in $Path
-
-            #  // Update count
-            Write-Verbose "Setting count to $Count..."
-            $K | Set-ItemProperty -Name Count -Value $Count
-
-        } # // ForEach $K in $Key
-
-    } # // ForEach $Item in $Tracked
-
-    # // Remove registry artifacts from NetworkList\Profiles
-    $Path = 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\NetworkList\Profiles\'
-    Write-Verbose "Searching $Path for VPN profile ""$ProfileName""..."
-    $Key = Get-Childitem -Path $Path | Where-Object { (Get-ItemPropertyValue $_.PsPath -Name Description) -eq $ProfileName }
-
-    If ($Key) {
-
-        Write-Verbose "Removing $($Key.Name)..."
-        $Key | Remove-Item
-
-    }
-
-    Else {
-
-        Write-Verbose "No profiles found matching ""$ProfileName"" in the network list."
-
-    }
-
-
-    If ($Current) {
-
-        #// Create ordered hashtable
-        $List = [Ordered]@{}
-        $Current | ForEach-Object { $List.Add("$($_.ToLower())", $_) }
-
-        # //Search hashtable for matching VPN profile and remove if present
-        If ($List.Contains($ProfileName)) {
-
-            Write-Verbose "Profile found. Removing entry..."
-            $List.Remove($ProfileName)
-            Write-Verbose "Updating the registry..."
-            Set-ItemProperty -Path $Path -Name $Name -Value $List.Values
-
-        }
-
-    }
-
-    Else {
-
-        Write-Verbose "No profiles found matching ""$ProfileName""."
-
-    }
-
-    ## End Clean-up and start deployment
+    param(
+        [string]$ProfileName
+    )
 
     $ProfileNameEscaped = $ProfileName -replace ' ', '%20'
 
@@ -477,7 +383,8 @@ function Add-AovpnConnection {
     catch [Exception] {
         $Message = "Unable to create $ProfileName profile: $_"
         Write-Host "LOG: $Message"
-        exit
+        Stop-Transcript
+        Continue Main
     }
     $Message = "Complete."
     Write-Host "LOG: $Message"
@@ -485,16 +392,165 @@ function Add-AovpnConnection {
 
 function Remove-AovpnConnection {
     param(
-        [string]$ProfileName
+        [bool]$IsDevicetunnel
     )
-
-    $ProfileNameEscaped = $ProfileName.Replace(" ", "%20")
 
     $namespaceName = "root\cimv2\mdm\dmmap"
     $className = "MDM_VPNv2_01"
 
-    $obj = Get-CimInstance -Namespace $namespaceName -ClassName $className | Where-Object InstanceID -like $ProfileNameEscaped
+    $obj = Get-CimInstance -Namespace $namespaceName -ClassName $className | Where-Object Devicetunnel -eq $IsDevicetunnel
+    if(!$obj){
+        Write-Host "LOG: No connection of this type found."
+        Return
+    }
+    $CurrentConnectionName= (Get-CimInstance -Namespace $namespaceName -ClassName $className | Where-Object Devicetunnel -eq $IsDevicetunnel).InstanceID
     Remove-CimInstance -CimInstance $obj
+
+    #At this point there should be no connection with same connectiontype configured so check if for some reason a connection still exists
+    if ($NULL -ne (Get-CimInstance -Namespace $namespaceName -ClassName $className | Where-Object Devicetunnel -eq $IsDevicetunnel)) {
+        Write-Error "ERROR: A connection with the current connection type already exists and could not be removed. Instance ID: $CurrentConnectionName. Aborting deployment."
+        Stop-Transcript
+        Continue main
+    }
+   
+    $ProfileNameEscaped = $CurrentConnectionName
+    $ProfileName = $ProfileNameEscaped.Replace("%20"," ") 
+    Write-Host "LOG: Successfully removed connection $ProfileName. Starting Registry-Cleanup..."
+    #Clean-Up by Richard Hicks
+
+    # Registry clean-up
+    Write-Verbose "Cleaning up registry artifacts for VPN connection ""$ProfileName""..."
+
+    # Remove registry artifacts from ERM\Tracked
+    Write-Verbose "Searching ERM\Tracked for profile ""$ProfileNameEscaped""..."
+
+    $BasePath = "HKLM:\SOFTWARE\Microsoft\EnterpriseResourceManager\Tracked"
+    $Tracked = Get-ChildItem -Path $BasePath
+
+    ForEach ($Item in $Tracked) {
+
+        Write-Verbose "Processing $(Convert-Path $Item.PsPath)..."
+        $Key = Get-ChildItem $Item.PsPath -Recurse | Where-Object { $_ | Get-ItemProperty -Include "Path*" }
+        $PathCount = ($Key.Property -Match "Path\d+").Count
+        Write-Verbose "Found a total of $PathCount ERM\Tracked entries."
+
+        # There may be more than 1 matching key
+        ForEach ($K in $Key) {
+
+            $Path = $K.Property | Where-Object { $_ -Match "Path\d+" }
+            $Count = $Path.Count
+            Write-Verbose "Found $Count entries under $($K.Name)."
+
+            ForEach ($P in $Path) {
+
+                Write-Verbose "Testing $P..."
+                $Value = $K.GetValue($P)
+
+                If ($Value -Match "$($ProfileNameEscaped)$") {
+
+                    Write-Verbose "Removing $Value under $($K.Name)..."
+                    $K | Remove-ItemProperty -Name $P
+
+                    # Decrement count
+                    $Count--
+
+                }
+
+            } # ForEach $P in $Path
+
+            #  // Update count
+            Write-Verbose "Setting count to $Count..."
+            $K | Set-ItemProperty -Name Count -Value $Count
+
+        } # ForEach $K in $Key
+
+    } # ForEach $Item in $Tracked
+
+    # Remove registry artifacts from NetworkList\Profiles
+    $Path = 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\NetworkList\Profiles\'
+    Write-Verbose "Searching $Path for VPN profile ""$ProfileName""..."
+    $Key = Get-Childitem -Path $Path | Where-Object { (Get-ItemPropertyValue $_.PsPath -Name Description) -eq $ProfileName }
+
+    If ($Key) {
+
+        Write-Verbose "Removing $($Key.Name)..."
+        $Key | Remove-Item
+
+    }
+
+    Else {
+
+        Write-Verbose "No profiles found matching ""$ProfileName"" in the network list."
+
+    }
+
+    # Remove registry artifacts from RasMan\Config
+    $Path = 'HKLM:\SYSTEM\CurrentControlSet\Services\RasMan\Config\'
+    $Name = 'AutoTriggerDisabledProfilesList'
+
+    Write-Verbose "Searching $Name under $Path for VPN profile ""$ProfileName""..."
+
+    Try {
+
+        # Get the current registry values as an array of strings
+        [string[]]$Current = Get-ItemPropertyValue -Path $Path -Name $Name -ErrorAction Stop
+
+    }
+
+    Catch {
+
+        Write-Verbose "$Name does not exist under $Path. No action required."
+
+    }
+
+    If ($Current) {
+
+        # Create ordered hashtable
+        $List = [Ordered]@{}
+        $Current | ForEach-Object { $List.Add("$($_.ToLower())", $_) }
+
+        # Search hashtable for matching VPN profile and remove if present
+        If ($List.Contains($ProfileName)) {
+
+            Write-Verbose "Profile found in AutoTriggerDisabledProfilesList. Removing entry..."
+            $List.Remove($ProfileName)
+            Write-Verbose "Updating the registry..."
+            Set-ItemProperty -Path $Path -Name $Name -Value $List.Values
+
+        }
+
+    }
+
+    Else {
+
+        Write-Verbose "No profiles found matching ""$ProfileName"" in the AutoTriggerDisabledProfilesList registry key."
+
+    }
+
+    # Remove registry artifacts from RasMan\DeviceTunnel
+    If ($DeviceTunnel) {
+
+        Write-Verbose 'Searching for entries in RasMan\DeviceTunnel...'
+        $Path = 'HKLM:\SYSTEM\CurrentControlSet\Services\RasMan\DeviceTunnel\'
+
+        If (Test-Path -Path $Path) {
+
+            Write-Verbose 'RasMan\DeviceTunnel found. Removing registry key...'
+            $Path = Get-Item -Path $Path
+            Remove-Item -Path $Path.PsPath -Recurse -Force
+
+        }
+
+        Else {
+
+            Write-Verbose 'RasMan\DeviceTunnel not found. No action required.'
+
+        }
+
+    }
+
+    Write-Host "LOG: Registry-Cleanup finished. Removal of connection $ProfileName is complete."
+
 }
 
 <#--------------------End Declaring Functions---------------------#>
@@ -505,41 +561,49 @@ function Remove-AovpnConnection {
 
     #Set Registry-Path that contains the values that were set through GPO and Key that contains current config
     if ($ConnectionType -like "Devicetunnel") {
-        $desiredconfregpath = $regpathdevicetunnel
+        $targetconfregpath = $regpathdevicetunnel
         $TranscriptLocation = ".\AOVPN_DT_LOG.txt"
         $IsDevicetunnel = $true
     }
     elseif ($ConnectionTypes -like "Usertunnel") {
-        $desiredconfregpath = $regpathusertunnel
+        $targetconfregpath = $regpathusertunnel
         $TranscriptLocation = ".\AOVPN_AUC_LOG.txt"
         $IsDevicetunnel = $false
     }
 
     Start-Transcript -Path $TranscriptLocation -Force
+
     if ($NotRunningInSystemContext) {
         Write-Warning "Script must be run as System."
         Stop-Transcript
         Exit 1
     }
 
-    $currentconfregpath = "$desiredconfregpath\Current"
+    $namespaceName = "root\cimv2\mdm\dmmap"
+    $className = "MDM_VPNv2_01"
+    $CurrentConnection = Get-CimInstance -Namespace $namespaceName -ClassName $className | Where-Object DeviceTunnel -eq $IsDevicetunnel -ErrorAction SilentlyContinue
+
+
+
+   
 
     #Get properties of the Registry keys
-    $desiredproperties = Get-Item -Path $desiredconfregpath -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Property | Sort-Object 
+    $currentconfregpath = "$targetconfregpath\Current"
+    $targetproperties = Get-Item -Path $targetconfregpath -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Property | Sort-Object 
     $currentproperties = Get-Item -Path $currentconfregpath -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Property | Sort-Object
+
+    
 
 
 
 
     ## If no settings are configured, remove connection
-    if ($NULL -eq $desiredproperties) {
+    if ($NULL -eq $targetproperties) {
         Write-Host "LOG: No settings were configured. Removing any connection with type $ConnectionType..."
 
-        $namespaceName = "root\cimv2\mdm\dmmap"
-        $className = "MDM_VPNv2_01"
-
-        $obj = Get-CimInstance -Namespace $namespaceName -ClassName $className | Where-Object DeviceTunnel -eq $IsDevicetunnel
-        Remove-CimInstance -CimInstance $obj
+        if($CurrentConnection){
+            Remove-AovpnConnection -IsDevicetunnel $IsDevicetunnel
+        }
 
         #Remove properties from 'Current' key 
         foreach ($property in $currentproperties) {
@@ -552,17 +616,14 @@ function Remove-AovpnConnection {
 
     #Check mandatory settings
     Write-Host "LOG: Running check for mandatory Settings..."
-    Test-AovpnConfiguration -path $desiredconfregpath
-    $ConnectionType 
-    $settingsmissing
-     
-    
-    Write-Host "LOG: Check successful. Comparing desired and current profile..."
+    Test-AovpnConfiguration -path $targetconfregpath -DeviceTunnel $IsDevicetunnel
+    $TargetProfileName = (Get-ItemPropertyValue -Path $targetconfregpath -Name ProfileName -ErrorAction SilentlyContinue)
+    Write-Host "LOG: Check successful. Comparing target and current profile..."
    
     
 
 
-    # vvvvvvvvvvvvv Compare current to desired config vvvvvvvvvvvvvvvvvv #
+    # vvvvvvvvvvvvv Compare current to target config vvvvvvvvvvvvvvvvvv #
 
     #Check if Registry path for current configuration exists
     $currentconfregpathexists = Test-Path $currentconfregpath
@@ -574,14 +635,12 @@ function Remove-AovpnConnection {
     #If it does exist, check if there is already a VPN-Profile with the same name as the new one
     else {
     
-        $Connection = Get-VpnConnection -AllUserConnection -Name $ProfileName -ErrorAction SilentlyContinue
-    
-        #If there is connection with same name and the 'Current'-Subkey is populated
-        if ($null -ne $Connection) {
+        #If there is connection with same conenction type and the 'Current'-Subkey is populated
+        if ($null -ne $CurrentConnection) {
 
-            #Compare current configuration to desired configuration 
+            #Compare current configuration to target configuration 
             try {
-                $match = Compare-Object -ReferenceObject $desiredproperties -DifferenceObject $currentproperties -ErrorAction SilentlyContinue
+                $match = Compare-Object -ReferenceObject $targetproperties -DifferenceObject $currentproperties -ErrorAction SilentlyContinue
             }
             catch {
                 Write-Host "LOG: No current configuration found. Skipping configuration comparison..."
@@ -593,29 +652,29 @@ function Remove-AovpnConnection {
     
                 $configdifferences = 0
     
-                foreach ($Property in $desiredproperties) {
+                foreach ($Property in $targetproperties) {
                     
-                    $desiredvalue = (Get-ItemProperty -Path $desiredconfregpath).$Property
+                    $targetvalue = (Get-ItemProperty -Path $targetconfregpath).$Property
                     $currentvalue = (Get-ItemProperty -Path $currentconfregpath).$Property
                    
                     #If the property values are arrays, compare content of arrays
-                    if ($desiredvalue -is [array]) {
-                        if ($desiredvalue.length -gt $currentvalue.length) {
-                            $length = $desiredvalue.Length
+                    if ($targetvalue -is [array]) {
+                        if ($targetvalue.length -gt $currentvalue.length) {
+                            $length = $targetvalue.Length
                         }
                         else {
                             $length = $currentvalue.Length
                         }
 
                         for ($j = 0; $j -lt $length; $j++) {
-                            if (!($desiredvalue[$j] -ceq $currentvalue[$j])) {
+                            if (!($targetvalue[$j] -ceq $currentvalue[$j])) {
                                 $configdifferences++
                                 Break
                             }
                         }
                     }
                     #Else compare property values directly
-                    elseif (!($desiredvalue -ceq $currentvalue)) {
+                    elseif (!($targetvalue -ceq $currentvalue)) {
                         $configdifferences++
                         Break
                     }
@@ -623,7 +682,7 @@ function Remove-AovpnConnection {
                      
                 }
     
-                # If there are no differences between the desired and the currently configured settings, exit script
+                # If there are no differences between the target and the currently configured settings, exit script
                 if ($configdifferences -eq 0) {
                     Write-Host "LOG: Configurations are identical. No changes will be made to the VPN-Connection $ProfileName."
                     Stop-Transcript
@@ -638,8 +697,8 @@ function Remove-AovpnConnection {
 
     ## Build Profile
     try {
-
-        $ProfileXML = Build-ConfigfromGPO -Path $desiredconfregpath -DeviceTunnel $IsDevicetunnel
+       
+        $ProfileXML = Build-ConfigfromGPO -Path $targetconfregpath -DeviceTunnel $IsDevicetunnel
     
     }
     catch {
@@ -648,30 +707,21 @@ function Remove-AovpnConnection {
         Continue main
     }
 
-   
-    #If any mandatory settings are unconfigured, exit
-    if ($NULL -ne $settingsmissing) {
-        Write-Error "ERROR: $settingsmissing mandatory setting(s) have not been configured. Please check group policies." -ErrorAction Continue
-        Stop-Transcript
-        Continue main
-    }
 
     $ProfileFormatted = Format-XML $ProfileXML.OuterXml
+   
     
 
     # If there were configuration differences, remove outdated connection with ProfileName
     if (($null -ne $match) -or ($configdifferences -gt 0)) {
 
-        Write-Host "LOG: Removing Profile $ProfileName..."
-        Remove-AovpnConnection -ProfileName $ProfileName
-    
+        Write-Host "LOG: Removing currently configured $Connectiontype..."
+        Remove-AovpnConnection -IsDevicetunnel $IsDevicetunnel
     }
 
-    #At this point there should be no connection with ProfileName configured so check if for some reason a connection still exists
-    if ($NULL -ne (Get-VpnConnection $ProfileName -AllUserConnection -ErrorAction SilentlyContinue)) {
-        Write-Error "ERROR: Profile $ProfileName already exists and could not be removed. Aborting deployment of $ConnectionType."
-        Stop-Transcript
-        Continue main
+    #Remove properties from 'Current' key 
+    foreach ($property in $currentproperties) {
+        Remove-ItemProperty -Path $currentconfregpath -Name $Property
     }
 
     #Create VPN-Connection from Profile.xml
@@ -679,7 +729,7 @@ function Remove-AovpnConnection {
 
     try {
    
-        Add-AovpnConnection
+        Add-AovpnConnection -ProfileName $TargetProfileName
     
     }
     catch {
@@ -689,15 +739,9 @@ function Remove-AovpnConnection {
     }
 
 
-
-    #Remove properties from 'Current' key 
-    foreach ($property in $currentproperties) {
-        Remove-ItemProperty -Path $currentconfregpath -Name $Property
-    }
-
-    #Then copy values from 'desired' to 'current'
-    foreach ($Property in $desiredproperties) {
-        Copy-ItemProperty -Path $desiredconfregpath -Destination $currentconfregpath -Name $Property
+    #Then copy values from 'target' to 'current'
+    foreach ($Property in $targetproperties) {
+        Copy-ItemProperty -Path $targetconfregpath -Destination $currentconfregpath -Name $Property
     }
 
     Stop-Transcript
