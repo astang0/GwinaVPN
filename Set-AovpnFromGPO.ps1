@@ -6,31 +6,12 @@ Creates an Always On VPN Profile based on values stored in the registry.
 This script uses values stored in the registry to build an AOVPN-Profile.
 The profile is then used to create a new VPN connection.
 
-
-.PARAMETER OutProfile
-Writes the created profile to a specified file. If not set, no file is created. 
-
-.PARAMETER OutProfileOnly
-Prevents the new VPN connection from being created.
-In this case, only the profile is written to the with '-OutProfile' specified file.
-
-
-
 #>
 
 [CmdletBinding(SupportsShouldProcess)]
 
 Param (
-
-    
-   
-    [Parameter(HelpMessage = 'Enter an OutFile-Path for the created Profile.')]
-    [Alias("OP")]
-    [string]$OutProfile,
-    [Alias("OPO")]
-    [switch]$OutProfileOnly
-
-
+    #
 )
 
 #Change directory to directory that the script was executed in
