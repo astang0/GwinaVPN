@@ -478,6 +478,23 @@
       </elements>
     </policy>
 
+    <!--  Profile Name DT-->
+    <policy
+      name="ProfileNameDT"
+      class="Machine"
+      displayName="$(string.ProfileName_Name)"
+      explainText="$(string.ProfileName_Explain)"
+      presentation="$(presentation.ProfileName)"
+      key="SOFTWARE\Policies\AovpnFromGPO\Devicetunnel"
+    >
+
+      <parentCategory ref="DeviceTunnel" />
+      <supportedOn ref="windows:SUPPORTED_Windows_10_0_NOSERVER_ENTERPRISE_EDUCATION" />
+      <elements>
+        <text id="ProfileName" valueName="ProfileName" required="true" />
+      </elements>
+    </policy>
+
     <!-- ######################  START ALL USER CONNECTION POLICIES  ######################  -->
 
   
@@ -686,6 +703,23 @@
       <supportedOn ref="windows:SUPPORTED_Windows_10_0_NOSERVER_ENTERPRISE_EDUCATION" />
       <elements>
         <multiText id="TrafficFiltersXml" valueName="TrafficFiltersXml" required="true" />
+      </elements>
+    </policy>
+
+    <!--  Profile Name AUC-->
+    <policy
+      name="ProfileNameAUC"
+      class="Machine"
+      displayName="$(string.ProfileName_Name)"
+      explainText="$(string.ProfileName_Explain)"
+      presentation="$(presentation.ProfileName)"
+      key="SOFTWARE\Policies\AovpnFromGPO\AllUserConnection"
+    >
+
+      <parentCategory ref="AllUserConnection"/>
+      <supportedOn ref="windows:SUPPORTED_Windows_10_0_NOSERVER_ENTERPRISE_EDUCATION" />
+      <elements>
+        <text id="ProfileName" valueName="ProfileName" required="true" />
       </elements>
     </policy>
 

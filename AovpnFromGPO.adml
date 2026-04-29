@@ -76,9 +76,6 @@ Default: Device Tunnel status is not shown in UI.
       <string id="Servers_Name">[Mandatory] VPN Server</string>
       <string id="Servers_Explain">FQDN of the VPN server the devices should connect to.</string>
 
-      <string id="ProfileName_Name">[Mandatory] Profile Name</string>
-      <string id="ProfileName_Explain">Enter a name for this Always On VPN Connection.</string>
-
       <string id="EapConfig_Name">[Mandatory] EAP Configuration XML</string>
       <string id="EapConfig_Explain">Enter the EAP Configuration XML for this connection.
 
@@ -137,13 +134,18 @@ Examples:
 Specify one entry per line. Separate multiple entries with line breaks after each entry.
 </string>
 
-<string id="TrafficFiltersXml_Name">[Optional] Traffic Filters</string>
-<string id="TrafficFiltersXml_Explain">Set Traffic Filters to implement further access control. 
+      <string id="TrafficFiltersXml_Name">[Optional] Traffic Filters</string>
+      <string id="TrafficFiltersXml_Explain">Set Traffic Filters to implement further access control. 
 
 Enter the Traffic Filter XML into the textbox (up to 50). Using traffic filters will create an implicit deny all rule, meaning that no traffic will be allowed through the VPN connection if it is not specifically allowed through a traffic filter rule. 
 
 For guidance on how to implement traffic filters refer to the wiki.
 </string>
+
+      <string id="ProfileName_Name">[Mandatory] Profile Name</string>
+      <string id="ProfileName_Explain">Display Name of the VPN-Connection. Users might see this name in the Connection Center. 
+
+Choose carefully! This name cannot be changed after the connection has been deployed. </string>
 
       <string id="dropdown_MD596">MD596</string>
       <string id="dropdown_SHA196">SHA196</string>
@@ -252,6 +254,12 @@ For guidance on how to implement traffic filters refer to the wiki.
         <multiTextBox refId="TrafficFiltersXml">
           Traffic Filters:
         </multiTextBox>
+      </presentation>
+
+      <presentation id="ProfileName">
+        <textBox refId="ProfileName">
+          <label>Profile Name:</label>
+        </textBox>
       </presentation>
 
     </presentationTable>
