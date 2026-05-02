@@ -31,11 +31,21 @@ If ($CurrentPrincipal.Identities.IsSystem -ne $True) {
 
 
 
-
-<#--------------------Start Declaring Functions---------------------#>
-<#--------------------Declare Function to build Profile.xml from registry settings---------------------#>
 function Build-ConfigfromGPO {
-   
+    <#
+    .SYNOPSIS
+    Builds a VPN profile from registry settings.
+
+    .DESCRIPTION
+    This function creates a VPN profile XML structure based on values stored in the registry.
+
+    .PARAMETER TargetPropertyValues
+    An array of property values from the registry.
+
+    .PARAMETER DeviceTunnel
+    A boolean indicating whether the tunnel is a device tunnel.
+    #>
+
     [CmdletBinding()]
     param (
         [Object[]]$TargetPropertyValues,
@@ -272,9 +282,21 @@ function Build-ConfigfromGPO {
     
 }
 
-<#--------------------Declare Function to check if mandatory settings have been set---------------------#>
-function Test-AovpnConfiguration {
 
+function Test-AovpnConfiguration {
+    <#
+    .SYNOPSIS
+    Function to check if mandatory settings have been set
+
+    .DESCRIPTION
+    This function verifies that all mandatory settings for the VPN configuration are properly configured.
+    
+    .PARAMETER TargetPropertyValues
+    An array of property values from the registry.
+
+    .PARAMETER DeviceTunnel
+    A boolean indicating whether the tunnel is a device tunnel.
+    #>
     [CmdletBinding()]
     param (
         [Object[]]$TargetPropertyValues,
@@ -304,11 +326,24 @@ function Test-AovpnConfiguration {
         Stop-Transcript
         Continue main
     }
+    Write-Host "LOG: Check successful. All mandatory settings are configured."
     
 }
 
-<#--------------------Declare Function to format XML-Document to readable string---------------------#>
 function Format-XML ([xml]$xml, $indent = 3, $format = "Indented") {
+
+    <#
+    .SYNOPSIS
+    Function to format XML-Document to readable string
+    .DESCRIPTION
+    This function takes an XML document and formats it to a readable string with specified indentation and formatting.
+    .PARAMETER xml
+    The XML document to be formatted.
+    .PARAMETER indent
+    The number of spaces to use for indentation. 
+    .PARAMETER format
+    The formatting style to use. 
+    #>
     $StringWriter = New-Object System.IO.StringWriter
     $XmlWriter = New-Object System.XMl.XmlTextWriter $StringWriter
     $xmlWriter.Formatting = $format
@@ -319,8 +354,92 @@ function Format-XML ([xml]$xml, $indent = 3, $format = "Indented") {
     Write-Output $StringWriter.ToString()
 }
 
-<#-------------------Declare function to deploy the VPN connection-----------------------------------#>
-function Add-AovpnConnection {
+function Compare-AovpnConfiguration {
+    <#
+    .SYNOPSIS
+    Function to compare VPN configurations
+
+    .DESCRIPTION
+    This function compares the current VPN configuration with the target configuration.
+
+    .PARAMETER OptionalParameters
+    Optional parameters for the function.
+    #>
+    
+    param (
+        [Object[]]$TargetPropertyValues,
+        [Object[]]$CurrentPropertyValues,
+        [string[]]$TargetRegPropertyNames,
+        [string[]]$CurrentRegPropertyNames
+    )
+
+
+    #Compare current configuration to target configuration 
+    try {
+        $match = Compare-Object -ReferenceObject $TargetRegPropertyNames -DifferenceObject $CurrentRegPropertyNames -ErrorAction SilentlyContinue
+    }
+    catch {
+        Write-Host "LOG: No current configuration found. Skipping configuration comparison..."
+        $match = 1
+    }
+    
+    #If there are identical properties set in both keys, compare the property values
+    if ($null -eq $match) {
+        $configdifferences = 0
+
+        foreach ($Property in $TargetRegPropertyNames) {
+            
+            $targetvalue = $TargetPropertyValues.$Property
+            $currentvalue = $CurrentPropertyValues.$Property
+            
+            #If the property values are arrays, compare content of arrays
+            if ($targetvalue -is [array]) {
+                if ($targetvalue.length -gt $currentvalue.length) {
+                    $length = $targetvalue.Length
+                }
+                else {
+                    $length = $currentvalue.Length
+                }
+
+                for ($j = 0; $j -lt $length; $j++) {
+                    if (!($targetvalue[$j] -ceq $currentvalue[$j])) {
+                        $configdifferences++
+                        Break
+                    }
+                }
+            }
+            #Else compare property values directly
+            elseif (!($targetvalue -ceq $currentvalue)) {
+                $configdifferences++
+                Break
+            }
+                
+        }
+    
+        # If there are no differences between the target and the currently configured settings, exit script
+        if ($configdifferences -eq 0) {
+            Write-Host "LOG: Configurations are identical. No changes will be made to the VPN-Connection $ProfileName."
+            Stop-Transcript
+            Continue main
+        }
+        else{
+            Write-Host "LOG: Configuration changes detected."
+        }
+        
+    }
+}
+
+function Set-AovpnConnection {
+    <#
+    .SYNOPSIS
+    Function to add a new VPN connection
+
+    .DESCRIPTION
+    This function creates a new VPN connection with the specified profile name.
+
+    .PARAMETER ProfileName
+    The name of the profile to be created.
+    #>
 
     param(
         [string]$ProfileName
@@ -363,6 +482,14 @@ function Add-AovpnConnection {
 }
 
 function Remove-AovpnConnection {
+    <#
+    .SYNOPSIS
+    Function to remove a VPN connection
+    .DESCRIPTION
+    This function removes an existing VPN connection with the specified profile name and cleans up registry artifacts.
+    .PARAMETER ProfileName
+    The name of the profile to be removed.
+    #>
     param(
         [bool]$IsDevicetunnel
     )
@@ -541,13 +668,13 @@ function Remove-AovpnConnection {
 
 }
 
-<#--------------------End Declaring Functions---------------------#>
+
 
 
 :main foreach ($ConnectionTypeSettings in ($RegistrySettings | where Name -Notlike "*Current")) {
 
 
-    #Set Registry-Path that contains the values that were set through GPO and Key that contains current config
+    #Determine connection type and set variables accordingly
     if ($ConnectionTypeSettings.Name -like "*Devicetunnel") {
         $ConnectionTypeDisplayName = "Device Tunnel"
         $TranscriptLocation = ".\AOVPN_DT_LOG.txt"
@@ -579,7 +706,7 @@ function Remove-AovpnConnection {
     }
     
 
-    #Get properties of the Registry keys
+    #Get property names and values of the Registry keys
     $ConnectionTypeSettingsCurrent = $RegistrySettings | where Name -like ($ConnectionTypeSettings.Name + "*Current")
 
     $TargetRegPropertyNames =  $ConnectionTypeSettings | Select-Object -ExpandProperty Property -ErrorAction SilentlyContinue | Sort-Object
@@ -612,13 +739,9 @@ function Remove-AovpnConnection {
     #Check mandatory settings
     Write-Host "LOG: Running check for mandatory Settings..."
     Test-AovpnConfiguration -TargetPropertyValues $TargetPropertyValues -DeviceTunnel $IsDevicetunnel
-    $TargetProfileName = $TargetPropertyValues.ProfileName
-    Write-Host "LOG: Check successful. Comparing target and current profile..."
-   
     
 
 
-    # vvvvvvvvvvvvv Compare current to target config vvvvvvvvvvvvvvvvvv #
 
     #If it does not exist, create 'Current' Reg-Key 
     if (!$ConnectionTypeSettingsCurrent) {
@@ -627,66 +750,9 @@ function Remove-AovpnConnection {
     }
     #If it does exist, check if there is already a VPN-Profile with the same name as the new one
     else {
-    
         #If there is connection with same connection type and the 'Current'-Subkey is populated
         if ($null -ne $CurrentConnection) {
-            
-            #Compare current configuration to target configuration 
-            try {
-                $match = Compare-Object -ReferenceObject $TargetRegPropertyNames -DifferenceObject $CurrentRegPropertyNames -ErrorAction SilentlyContinue
-            }
-            catch {
-                Write-Host "LOG: No current configuration found. Skipping configuration comparison..."
-                $match = 1
-            }
-            
-            #If there are identical properties set in both keys, compare the property values
-            if ($null -eq $match) {
-                $configdifferences = 0
-    
-                foreach ($Property in $TargetRegPropertyNames) {
-                    
-                    $targetvalue = $TargetPropertyValues.$Property
-                    $currentvalue = $CurrentPropertyValues.$Property
-                   
-                    #If the property values are arrays, compare content of arrays
-                    if ($targetvalue -is [array]) {
-                        if ($targetvalue.length -gt $currentvalue.length) {
-                            $length = $targetvalue.Length
-                        }
-                        else {
-                            $length = $currentvalue.Length
-                        }
-
-                        for ($j = 0; $j -lt $length; $j++) {
-                            if (!($targetvalue[$j] -ceq $currentvalue[$j])) {
-                                $configdifferences++
-                                Break
-                            }
-                        }
-                    }
-                    #Else compare property values directly
-                    elseif (!($targetvalue -ceq $currentvalue)) {
-                        $configdifferences++
-                        Break
-                    }
-                    
-                     
-                }
-                
-                # If there are no differences between the target and the currently configured settings, exit script
-                if ($configdifferences -eq 0) {
-                    Write-Host "LOG: Configurations are identical. No changes will be made to the VPN-Connection $ProfileName."
-                    Stop-Transcript
-                    Continue main
-                }
-                else{
-                    Write-Host "LOG: Configuration changes detected."
-                }
-                
-            }
-
-    
+            Compare-AovpnConfiguration -TargetPropertyValues $TargetPropertyValues -CurrentPropertyValues $CurrentPropertyValues -TargetRegPropertyNames $TargetRegPropertyNames -CurrentRegPropertyNames $CurrentRegPropertyNames
         } 
     }
 
@@ -723,7 +789,7 @@ function Remove-AovpnConnection {
 
     try {
    
-        Add-AovpnConnection -ProfileName $TargetProfileName
+        Set-AovpnConnection -ProfileName $TargetPropertyValues.ProfileName
     
     }
     catch {
