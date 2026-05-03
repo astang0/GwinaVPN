@@ -19,6 +19,11 @@ Param (
 #Change directory to directory that the script was executed in
 Set-Location $PSScriptRoot
 
+#Set-Variables for log file.
+$LogfileDT = ".\AOVPN_DT_LOG.txt"
+$LogfileAUC = ".\AOVPN_AUC_LOG.txt"
+$MaxLogLength = 1000
+
 #Fetch Registry Settings for both User and Device Tunnel
 $RegistrySettings = Get-ChildItem -Path "HKLM:\SOFTWARE\Policies\AovpnFromGPO\" -Recurse -ErrorAction SilentlyContinue
 
@@ -29,7 +34,31 @@ If ($CurrentPrincipal.Identities.IsSystem -ne $True) {
     $NotRunningInSystemContext = $true
 }
 
+function Write-Log {
+    <#
+    .SYNOPSIS
+    Writes a message to the log file and console.
 
+    .DESCRIPTION
+    This function writes a message to the log file and console with a timestamp and log level.
+
+    .PARAMETER Message
+    The message to write to the log.
+
+    .PARAMETER Level
+    The log level of the message.
+    #>
+
+    param(
+        [string]$Message, 
+        [string]$Level = 'Info'  
+    )
+
+    $Timestamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
+    $LogEntry = "[$Timestamp] [$Level] $Message"
+    Write-Host $LogEntry
+    Add-Content -Path $Logfile -Value $LogEntry
+}
 
 function Build-ConfigfromGPO {
     <#
@@ -310,21 +339,21 @@ function Test-AovpnConfiguration {
     else {
         $mandatorysettings = $mandatorysettings + @("EapConfig")
     }
+
     #Check if mandatory settings have been configured
     foreach ($Setting in $mandatorysettings) {
         if($NULL -eq $TargetPropertyValues.$Setting) {
-        
-            Write-Error "ERROR: Setting '$Setting' must be configured." -ErrorAction Continue
-            $settingsmissing++
+            $MissingSettings += $Setting
         }
     }
-    
-    if ($NULL -ne $settingsmissing) {
-        Write-Error "ERROR: $settingsmissing mandatory settings have not been configured for connection type $ConnectionTypeDisplayName. Please check GPO settings."
-        Stop-Transcript
-        Continue main
+    $MissingSettings
+    if ($MissingSettings) {
+        $ErrorMessage = "Mandatory settings missing: $($MissingSettings -join ', ')"
+        #Write-Log -Message $ErrorMessage -Level 'Error'
+        throw [System.ArgumentException]::new($ErrorMessage)
     }
-    Write-Host "LOG: Check successful. All mandatory settings are configured."
+
+    Write-Log -Message "Check successful. All mandatory settings are configured." -Level 'Info'
     
 }
 
@@ -416,12 +445,11 @@ function Compare-AovpnConfiguration {
     
         # If there are no differences between the target and the currently configured settings, exit script
         if ($configdifferences -eq 0) {
-            Write-Host "LOG: Configurations are identical. No changes will be made to the VPN-Profile."
-            Stop-Transcript
+            Write-Log -Message "Configurations are identical. No changes will be made to the VPN-Profile." -Level 'Info'
             Continue main
         }
         else{
-            Write-Host "LOG: Configuration changes detected."
+            Write-Log -Message "Configuration changes detected." -Level 'Info'
         }
         
     }
@@ -471,18 +499,15 @@ function Set-AovpnConnection {
         $property = [Microsoft.Management.Infrastructure.CimProperty]::Create("ProfileXML", "$ProfileToDeploy", 'String', 'Property')
         $newInstance.CimInstanceProperties.Add($property)
 
-        $session.CreateInstance($namespaceName, $newInstance)
-        $Message = "Created $ProfileName profile."
-        Write-Host "LOG: $Message"
+        $session.CreateInstance($namespaceName, $newInstance) | Out-Null
+        $Message = "Successfully (re)deployed $ProfileName profile."
+        Write-Log -Message $Message -Level 'Info'
     }
     catch [Exception] {
         $Message = "Unable to create $ProfileName profile: $_"
-        Write-Host "LOG: $Message"
-        Stop-Transcript
+        throw $Message
         Continue Main
     }
-    $Message = "Complete."
-    Write-Host "LOG: $Message"
 }
 
 function Remove-AovpnConnection {
@@ -511,7 +536,7 @@ function Remove-AovpnConnection {
 
     #If nothing was found, return
     if(!$CurrentConnection){
-        Write-Host "LOG: No connection of this type found."
+        Write-Log "No connection of this type found." -Level 'Info' 
         Return
     }
 
@@ -527,14 +552,13 @@ function Remove-AovpnConnection {
 
     #At this point there should be no connection with same connectiontype configured so check if for some reason a connection still exists
     if ($NULL -ne ($CurrentConnection)) {
-        Write-Error "ERROR: A connection with the current connection type already exists and could not be removed. Instance ID: $CurrentConnectionName. Aborting deployment."
-        Stop-Transcript
+        Write-Log -Message "A connection with the current connection type already exists and could not be removed. Instance ID: $CurrentConnectionName. Aborting deployment." -Level 'Error'
         Continue main
     }
    
     $ProfileNameEscaped = $CurrentConnectionName
     $ProfileName = $ProfileNameEscaped.Replace("%20"," ") 
-    Write-Host "LOG: Successfully removed connection $ProfileName. Starting Registry-Cleanup..."
+    Write-Log "Successfully removed connection $ProfileName. Starting Registry-Cleanup..." -Level 'Info' 
     #Clean-Up by Richard Hicks
 
     # Registry clean-up
@@ -668,7 +692,7 @@ function Remove-AovpnConnection {
 
     }
 
-    Write-Host "LOG: Registry-Cleanup finished. Removal of connection $ProfileName is complete."
+    Write-Log "Registry-Cleanup finished. Removal of connection $ProfileName is complete." -Level 'Info' 
 
 }
 
@@ -677,134 +701,118 @@ function Remove-AovpnConnection {
 
 :main foreach ($ConnectionTypeSettings in ($RegistrySettings | where Name -Notlike "*Current")) {
 
-
-    #Determine connection type and set variables accordingly
-    if ($ConnectionTypeSettings.Name -like "*Devicetunnel") {
-        $ConnectionTypeDisplayName = "DeviceTunnel"
-        $TranscriptLocation = ".\AOVPN_DT_LOG.txt"
-        $IsDevicetunnel = $true
-    }
-    elseif ($ConnectionTypeSettings.Name -like "*AllUserConnection") {
-        $ConnectionTypeDisplayName = "AllUserConnection"
-        $TranscriptLocation = ".\AOVPN_AUC_LOG.txt"
-        $IsDevicetunnel = $false
-    }
-
-    Start-Transcript -Path $TranscriptLocation -Force
-
-    if ($NotRunningInSystemContext) {
-        Write-Warning "Script must be run as System."
-        Stop-Transcript
-        Exit 1
-    }
-
-    #Set variables for current and target configuration
-    $RegistryPath = $ConnectionTypeSettings.PSPath
-    $ConnectionTypeSettingsCurrent = $RegistrySettings | where Name -like ($ConnectionTypeSettings.Name + "*Current")
-
-    $TargetRegPropertyNames =  $ConnectionTypeSettings | Select-Object -ExpandProperty Property -ErrorAction SilentlyContinue | Sort-Object
-    $CurrentRegPropertyNames = $ConnectionTypeSettingsCurrent | Select-Object -ExpandProperty Property -ErrorAction SilentlyContinue | Sort-Object
-
-    $TargetPropertyValues = $ConnectionTypeSettings | Get-ItemProperty -ErrorAction SilentlyContinue
-    $CurrentPropertyValues = $ConnectionTypeSettingsCurrent | Get-ItemProperty -ErrorAction SilentlyContinue
-
-    $TargetProfileName = $TargetPropertyValues.ProfileName
-
-
-    #Check if connection with same connection type exists
-    $namespaceName = "root\cimv2\mdm\dmmap"
-    $className = "MDM_VPNv2_01"
-    if($IsDevicetunnel){
-        $CurrentConnection = Get-CimInstance -Namespace $namespaceName -ClassName $className | Where-Object DeviceTunnel -eq "True" -ErrorAction SilentlyContinue
-    }
-    else{
-        $CurrentConnection = Get-CimInstance -Namespace $namespaceName -ClassName $className | Where-Object DeviceTunnel -ne "True" -ErrorAction SilentlyContinue
-    }
-    
-
-    ## If no settings are configured, remove connection
-    if ($NULL -eq $TargetRegPropertyNames) {
-        Write-Host "LOG: No settings were configured. Removing any connection with type $ConnectionTypeDisplayName..."
-
-        if($CurrentConnection){
-            Remove-AovpnConnection -IsDevicetunnel $IsDevicetunnel
-        }
-        Remove-Item -Path "$RegistryPath\Current" -ErrorAction SilentlyContinue
-            
-        Stop-Transcript
-        Continue main
-    }
-    
-
-    #Check mandatory settings
-    Write-Host "LOG: Running check for mandatory Settings..."
-    Test-AovpnConfiguration -TargetPropertyValues $TargetPropertyValues -DeviceTunnel $IsDevicetunnel
-    
-    #If it does not exist, create 'Current' Reg-Key 
-    if (!$ConnectionTypeSettingsCurrent) {
-        New-Item -Path ($RegistryPath+"\Current") -Force
-        
-    }
-    #If it does exist, check if there is already a VPN-Profile with the same name as the new one
-    else {
-        #If there is connection with same connection type run configuration comparison
-        if ($null -ne $CurrentConnection) {
-            $ConfigurationDifferencesExist = Compare-AovpnConfiguration -TargetPropertyValues $TargetPropertyValues -CurrentPropertyValues $CurrentPropertyValues -TargetRegPropertyNames $TargetRegPropertyNames -CurrentRegPropertyNames $CurrentRegPropertyNames
-        } 
-    }
-
-    ## Build Profile
     try {
-        Write-Host "LOG: Building configuration..."
+        #Determine connection type and set variables accordingly
+        if ($ConnectionTypeSettings.Name -like "*Devicetunnel") {
+            $ConnectionTypeDisplayName = "DeviceTunnel"
+            $script:Logfile = $LogfileDT
+            $IsDevicetunnel = $true
+        }
+        elseif ($ConnectionTypeSettings.Name -like "*AllUserConnection") {
+            $ConnectionTypeDisplayName = "AllUserConnection"
+            $script:Logfile = $LogfileAUC
+            $IsDevicetunnel = $false
+        }
+
+
+        if ($NotRunningInSystemContext) {
+            throw "Script must be run as System."
+        }
+
+        Write-Log -Message "Starting processing for $ConnectionTypeDisplayName connection..." -Level 'Info'
+        #Set variables for current and target configuration
+        $RegistryPath = $ConnectionTypeSettings.PSPath
+        $ConnectionTypeSettingsCurrent = $RegistrySettings | where Name -like ($ConnectionTypeSettings.Name + "*Current")
+
+        $TargetRegPropertyNames =  $ConnectionTypeSettings | Select-Object -ExpandProperty Property -ErrorAction SilentlyContinue | Sort-Object
+        $CurrentRegPropertyNames = $ConnectionTypeSettingsCurrent | Select-Object -ExpandProperty Property -ErrorAction SilentlyContinue | Sort-Object
+
+        $TargetPropertyValues = $ConnectionTypeSettings | Get-ItemProperty -ErrorAction SilentlyContinue
+        $CurrentPropertyValues = $ConnectionTypeSettingsCurrent | Get-ItemProperty -ErrorAction SilentlyContinue
+
+        $TargetProfileName = $TargetPropertyValues.ProfileName
+
+
+        #Check if connection with same connection type exists
+        $namespaceName = "root\cimv2\mdm\dmmap"
+        $className = "MDM_VPNv2_01"
+        if($IsDevicetunnel){
+            $CurrentConnection = Get-CimInstance -Namespace $namespaceName -ClassName $className | Where-Object DeviceTunnel -eq "True" -ErrorAction SilentlyContinue
+        }
+        else{
+            $CurrentConnection = Get-CimInstance -Namespace $namespaceName -ClassName $className | Where-Object DeviceTunnel -ne "True" -ErrorAction SilentlyContinue
+        }
+        
+
+        ## If no settings are configured, remove connection
+        if ($NULL -eq $TargetRegPropertyNames) {
+            Write-Log -Message "No settings were configured. Removing any connection with type $ConnectionTypeDisplayName..." -Level 'Info' 
+
+            if($CurrentConnection){
+                Remove-AovpnConnection -IsDevicetunnel $IsDevicetunnel
+            }
+            Remove-Item -Path "$RegistryPath\Current" -ErrorAction SilentlyContinue
+            Continue Main
+        }
+        
+
+        # Check mandatory settings
+        Write-Log -Message "Running check for mandatory Settings..." -Level 'Info' 
+        Test-AovpnConfiguration -TargetPropertyValues $TargetPropertyValues -DeviceTunnel $IsDevicetunnel
+        
+        # If it does not exist, create 'Current' Reg-Key 
+        if (!$ConnectionTypeSettingsCurrent) {
+            New-Item -Path ($RegistryPath+"\Current") -Force
+            
+        }
+        #If it does exist, check if there is already a VPN-Profile with the same name as the new one
+        else {
+            #If there is connection with same connection type, run configuration comparison
+            if ($null -ne $CurrentConnection) {
+                $ConfigurationDifferencesExist = Compare-AovpnConfiguration -TargetPropertyValues $TargetPropertyValues -CurrentPropertyValues $CurrentPropertyValues -TargetRegPropertyNames $TargetRegPropertyNames -CurrentRegPropertyNames $CurrentRegPropertyNames
+            } 
+        }
+
+        # Build Profile
+        Write-Log -Message "Building configuration..." -Level 'Info' 
         $ProfileXML = Build-ConfigfromGPO -TargetPropertyValues $TargetPropertyValues -DeviceTunnel $IsDevicetunnel
         $ProfileFormatted = Format-XML $ProfileXML.OuterXml
-    
-    }
-    catch {
-        Write-Error $_.Exception.InnerException.Message -ErrorAction Continue
-        Stop-Transcript
-        Continue main
-    }
 
+        # If there were configuration differences, remove outdated connection with ProfileName
+        if ($ConfigurationDifferencesExist) {
+            Write-Log -Message "Removing currently configured $ConnectionTypeDisplayName..." -Level 'Info' 
+            Remove-AovpnConnection -IsDevicetunnel $IsDevicetunnel
+        }
 
-    
+        #Remove properties from 'Current' key 
+        foreach ($property in $CurrentRegPropertyNames) {
+            Remove-ItemProperty -Path "$RegistryPath\Current" -Name $Property
+        }
 
-    # If there were configuration differences, remove outdated connection with ProfileName
-
-    if ($ConfigurationDifferencesExist) {
-
-        Write-Host "LOG: Removing currently configured $ConnectionTypeDisplayName..."
-        Remove-AovpnConnection -IsDevicetunnel $IsDevicetunnel
-    }
-
-    #Remove properties from 'Current' key 
-    foreach ($property in $CurrentRegPropertyNames) {
-        Remove-ItemProperty -Path "$RegistryPath\Current" -Name $Property
-    }
-
-    #Create VPN-Connection from Profile.xml
-    Write-Host "LOG: Creating new connection..."
-
-    try {
-   
+        #Create VPN-Connection from Profile.xml
+        Write-Log -Message "Creating new connection..." -Level 'Info' 
         Set-AovpnConnection -ProfileName $TargetProfileName
-    
+
+        #Then copy values from 'target' to 'current'
+        foreach ($Property in $TargetRegPropertyNames) {
+            Copy-ItemProperty -Path $RegistryPath -Destination "$RegistryPath\Current" -Name $Property
+        }
     }
     catch {
-        Write-Error $_.Exception.InnerException.Message -ErrorAction Continue
-        Stop-Transcript
-        Continue main
+        Write-Log -Message "Error in $ConnectionTypeDisplayName processing: $($_.Exception.Message)" -Level 'Error' 
     }
+    finally{
+        Write-Log -Message "Finished processing $ConnectionTypeDisplayName connection." -Level 'Info' 
 
-
-    #Then copy values from 'target' to 'current'
-    foreach ($Property in $TargetRegPropertyNames) {
-        Copy-ItemProperty -Path $RegistryPath -Destination "$RegistryPath\Current" -Name $Property
+        #Trim log file to max length
+        $LogfileContent = Get-Content -Path $Logfile
+        if ($LogfileContent.Length -gt $MaxLogLength) {
+            $LogfileContent = $LogfileContent | Select-Object -Last $MaxLogLength
+            Set-Content -Path $Logfile -Value $LogfileContent
+        }
+        
     }
-
-    Stop-Transcript
-    Continue main
-
 
 }
+
 
