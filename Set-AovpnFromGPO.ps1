@@ -51,8 +51,6 @@ function Build-ConfigfromGPO {
         [Object[]]$TargetPropertyValues,
         [bool]$DeviceTunnel
     )
-    
-    $TargetPropertyValues = Get-ItemProperty -Path $path
 
     ##Create XML-Document with Profile Base Structure
     $ProfileXML = [xml]@"
@@ -418,7 +416,7 @@ function Compare-AovpnConfiguration {
     
         # If there are no differences between the target and the currently configured settings, exit script
         if ($configdifferences -eq 0) {
-            Write-Host "LOG: Configurations are identical. No changes will be made to the VPN-Connection $ProfileName."
+            Write-Host "LOG: Configurations are identical. No changes will be made to the VPN-Profile."
             Stop-Transcript
             Continue main
         }
@@ -427,6 +425,12 @@ function Compare-AovpnConfiguration {
         }
         
     }
+
+    if (($null -ne $match) -or ($configdifferences -gt 0)) {
+        $ConfigurationDifferencesExist = $true
+    }
+
+    Return $ConfigurationDifferencesExist
 }
 
 function Set-AovpnConnection {
@@ -676,11 +680,11 @@ function Remove-AovpnConnection {
 
     #Determine connection type and set variables accordingly
     if ($ConnectionTypeSettings.Name -like "*Devicetunnel") {
-        $ConnectionTypeDisplayName = "Device Tunnel"
+        $ConnectionTypeDisplayName = "DeviceTunnel"
         $TranscriptLocation = ".\AOVPN_DT_LOG.txt"
         $IsDevicetunnel = $true
     }
-    elseif ($ConnectionType.Name -like "*AllUserConnection") {
+    elseif ($ConnectionTypeSettings.Name -like "*AllUserConnection") {
         $ConnectionTypeDisplayName = "AllUserConnection"
         $TranscriptLocation = ".\AOVPN_AUC_LOG.txt"
         $IsDevicetunnel = $false
@@ -694,19 +698,8 @@ function Remove-AovpnConnection {
         Exit 1
     }
 
-    #Check if connection with same connection type exists
-    $namespaceName = "root\cimv2\mdm\dmmap"
-    $className = "MDM_VPNv2_01"
-    
-    if($IsDevicetunnel){
-        $CurrentConnection = Get-CimInstance -Namespace $namespaceName -ClassName $className | Where-Object DeviceTunnel -eq "True" -ErrorAction SilentlyContinue
-    }
-    else{
-        $CurrentConnection = Get-CimInstance -Namespace $namespaceName -ClassName $className | Where-Object DeviceTunnel -ne "True" -ErrorAction SilentlyContinue
-    }
-    
-
-    #Get property names and values of the Registry keys
+    #Set variables for current and target configuration
+    $RegistryPath = $ConnectionTypeSettings.PSPath
     $ConnectionTypeSettingsCurrent = $RegistrySettings | where Name -like ($ConnectionTypeSettings.Name + "*Current")
 
     $TargetRegPropertyNames =  $ConnectionTypeSettings | Select-Object -ExpandProperty Property -ErrorAction SilentlyContinue | Sort-Object
@@ -715,9 +708,19 @@ function Remove-AovpnConnection {
     $TargetPropertyValues = $ConnectionTypeSettings | Get-ItemProperty -ErrorAction SilentlyContinue
     $CurrentPropertyValues = $ConnectionTypeSettingsCurrent | Get-ItemProperty -ErrorAction SilentlyContinue
 
+    $TargetProfileName = $TargetPropertyValues.ProfileName
 
 
-
+    #Check if connection with same connection type exists
+    $namespaceName = "root\cimv2\mdm\dmmap"
+    $className = "MDM_VPNv2_01"
+    if($IsDevicetunnel){
+        $CurrentConnection = Get-CimInstance -Namespace $namespaceName -ClassName $className | Where-Object DeviceTunnel -eq "True" -ErrorAction SilentlyContinue
+    }
+    else{
+        $CurrentConnection = Get-CimInstance -Namespace $namespaceName -ClassName $className | Where-Object DeviceTunnel -ne "True" -ErrorAction SilentlyContinue
+    }
+    
 
     ## If no settings are configured, remove connection
     if ($NULL -eq $TargetRegPropertyNames) {
@@ -726,11 +729,8 @@ function Remove-AovpnConnection {
         if($CurrentConnection){
             Remove-AovpnConnection -IsDevicetunnel $IsDevicetunnel
         }
-
-        #Remove properties from 'Current' key 
-        foreach ($property in $CurrentRegPropertyNames) {
-            Remove-ItemProperty -Path $ConnectionTypeSettingsCurrent.PSPath -Name $Property
-        }
+        Remove-Item -Path "$RegistryPath\Current" -ErrorAction SilentlyContinue
+            
         Stop-Transcript
         Continue main
     }
@@ -740,19 +740,16 @@ function Remove-AovpnConnection {
     Write-Host "LOG: Running check for mandatory Settings..."
     Test-AovpnConfiguration -TargetPropertyValues $TargetPropertyValues -DeviceTunnel $IsDevicetunnel
     
-
-
-
     #If it does not exist, create 'Current' Reg-Key 
     if (!$ConnectionTypeSettingsCurrent) {
-        New-Item -Path ($ConnectionTypeSettings.PSPath+"\Current") -Force
+        New-Item -Path ($RegistryPath+"\Current") -Force
         
     }
     #If it does exist, check if there is already a VPN-Profile with the same name as the new one
     else {
-        #If there is connection with same connection type and the 'Current'-Subkey is populated
+        #If there is connection with same connection type run configuration comparison
         if ($null -ne $CurrentConnection) {
-            Compare-AovpnConfiguration -TargetPropertyValues $TargetPropertyValues -CurrentPropertyValues $CurrentPropertyValues -TargetRegPropertyNames $TargetRegPropertyNames -CurrentRegPropertyNames $CurrentRegPropertyNames
+            $ConfigurationDifferencesExist = Compare-AovpnConfiguration -TargetPropertyValues $TargetPropertyValues -CurrentPropertyValues $CurrentPropertyValues -TargetRegPropertyNames $TargetRegPropertyNames -CurrentRegPropertyNames $CurrentRegPropertyNames
         } 
     }
 
@@ -760,7 +757,7 @@ function Remove-AovpnConnection {
     try {
         Write-Host "LOG: Building configuration..."
         $ProfileXML = Build-ConfigfromGPO -TargetPropertyValues $TargetPropertyValues -DeviceTunnel $IsDevicetunnel
-        
+        $ProfileFormatted = Format-XML $ProfileXML.OuterXml
     
     }
     catch {
@@ -770,10 +767,11 @@ function Remove-AovpnConnection {
     }
 
 
-    $ProfileFormatted = Format-XML $ProfileXML.OuterXml
+    
 
     # If there were configuration differences, remove outdated connection with ProfileName
-    if (($null -ne $match) -or ($configdifferences -gt 0)) {
+
+    if ($ConfigurationDifferencesExist) {
 
         Write-Host "LOG: Removing currently configured $ConnectionTypeDisplayName..."
         Remove-AovpnConnection -IsDevicetunnel $IsDevicetunnel
@@ -781,7 +779,7 @@ function Remove-AovpnConnection {
 
     #Remove properties from 'Current' key 
     foreach ($property in $CurrentRegPropertyNames) {
-        Remove-ItemProperty -Path $ConnectionTypeSettingsCurrent.PSPath -Name $Property
+        Remove-ItemProperty -Path "$RegistryPath\Current" -Name $Property
     }
 
     #Create VPN-Connection from Profile.xml
@@ -789,7 +787,7 @@ function Remove-AovpnConnection {
 
     try {
    
-        Set-AovpnConnection -ProfileName $TargetPropertyValues.ProfileName
+        Set-AovpnConnection -ProfileName $TargetProfileName
     
     }
     catch {
@@ -801,7 +799,7 @@ function Remove-AovpnConnection {
 
     #Then copy values from 'target' to 'current'
     foreach ($Property in $TargetRegPropertyNames) {
-        Copy-ItemProperty -Path $ConnectionTypeSettingsTarget.PSPath -Destination $ConnectionTypeSettingsCurrent.PSPath -Name $Property
+        Copy-ItemProperty -Path $RegistryPath -Destination "$RegistryPath\Current" -Name $Property
     }
 
     Stop-Transcript
