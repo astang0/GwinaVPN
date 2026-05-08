@@ -346,7 +346,7 @@ function Test-AovpnConfiguration {
             $MissingSettings += $Setting
         }
     }
-    $MissingSettings
+    
     if ($MissingSettings) {
         $ErrorMessage = "Mandatory settings missing: $($MissingSettings -join ', ')"
         #Write-Log -Message $ErrorMessage -Level 'Error'
@@ -406,7 +406,7 @@ function Compare-AovpnConfiguration {
         $match = Compare-Object -ReferenceObject $TargetRegPropertyNames -DifferenceObject $CurrentRegPropertyNames -ErrorAction SilentlyContinue
     }
     catch {
-        Write-Host "LOG: No current configuration found. Skipping configuration comparison..."
+        Write-Log -Message "No current configuration found. Skipping configuration comparison..." -Level 'Info'
         $match = 1
     }
     
@@ -506,7 +506,6 @@ function Set-AovpnConnection {
     catch [Exception] {
         $Message = "Unable to create $ProfileName profile: $_"
         throw $Message
-        Continue Main
     }
 }
 
@@ -541,7 +540,7 @@ function Remove-AovpnConnection {
     }
 
     #Else extract name, delete and check if gone
-    $CurrentConnectionName= $CurrentConnection.InstanceID
+    $CurrentConnectionName = $CurrentConnection.InstanceID
     Remove-CimInstance -CimInstance $CurrentConnection
     if($IsDevicetunnel){
         $CurrentConnection = Get-CimInstance -Namespace $namespaceName -ClassName $className | Where-Object DeviceTunnel -eq "True" -ErrorAction SilentlyContinue
@@ -762,7 +761,7 @@ function Remove-AovpnConnection {
         
         # If it does not exist, create 'Current' Reg-Key 
         if (!$ConnectionTypeSettingsCurrent) {
-            New-Item -Path ($RegistryPath+"\Current") -Force
+            New-Item -Path ($RegistryPath+"\Current") -Force | Out-Null
             
         }
         #If it does exist, check if there is already a VPN-Profile with the same name as the new one
@@ -784,15 +783,41 @@ function Remove-AovpnConnection {
             Remove-AovpnConnection -IsDevicetunnel $IsDevicetunnel
         }
 
+        #Create VPN-Connection from Profile.xml
+        Write-Log -Message "Creating new connection..." -Level 'Info' 
+        try {
+            Set-AovpnConnection -ProfileName $TargetProfileName
+        }
+        catch {
+            
+            Write-Log -Message "Connection could not be created with configured settings." -Level 'Error'
+
+            # Revert to previous configuration if available
+            if($CurrentConnection) {
+                Write-Log -Message "Reverting to previous configuration..." -Level 'Info'
+                $ProfileXML = $CurrentConnection.ProfileXML
+                $ProfileFormatted = Format-XML $ProfileXML
+                $TargetProfileName = $CurrentConnection.InstanceID.Replace("%20"," ")
+
+                # Create VPN-Connection from Profile.xml
+                Set-AovpnConnection -ProfileName $TargetProfileName
+
+                # Skip rest of script as we have reverted to previous configuration and do not want to overwrite the registry values
+                Continue Main
+                
+            }
+            else{
+                # If there was no previous configuration, log error and exit
+                throw
+            }
+            
+        }
+
         #Remove properties from 'Current' key 
         foreach ($property in $CurrentRegPropertyNames) {
             Remove-ItemProperty -Path "$RegistryPath\Current" -Name $Property
         }
-
-        #Create VPN-Connection from Profile.xml
-        Write-Log -Message "Creating new connection..." -Level 'Info' 
-        Set-AovpnConnection -ProfileName $TargetProfileName
-
+        
         #Then copy values from 'target' to 'current'
         foreach ($Property in $TargetRegPropertyNames) {
             Copy-ItemProperty -Path $RegistryPath -Destination "$RegistryPath\Current" -Name $Property
