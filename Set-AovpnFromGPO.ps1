@@ -16,19 +16,19 @@ Param (
     #
 )
 
-#Change directory to directory that the script was executed in
+## Change directory to directory that the script was executed in
 Set-Location $PSScriptRoot
 
-#Set-Variables for log file.
+## Set-Variables for log file.
 $LogfileDT = ".\AOVPN_DT_LOG.txt"
 $LogfileAUC = ".\AOVPN_AUC_LOG.txt"
 $MaxLogLength = 1000
 
-#Fetch Registry Settings for both User and Device Tunnel
+## Fetch Registry Settings for both User and Device Tunnel
 $RegistrySettings = Get-ChildItem -Path "HKLM:\SOFTWARE\Policies\AovpnFromGPO\" -Recurse -ErrorAction SilentlyContinue
 
 
-#Check if script is running in correct context
+## Check if script is running in correct context
 $CurrentPrincipal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
 If ($CurrentPrincipal.Identities.IsSystem -ne $True) {
     $NotRunningInSystemContext = $true
@@ -343,12 +343,13 @@ function Test-AovpnConfiguration {
     #Check if mandatory settings have been configured
     foreach ($Setting in $mandatorysettings) {
         if($NULL -eq $TargetPropertyValues.$Setting) {
-            $MissingSettings += $Setting
+            $MissingSettings += (", " + $Setting)
         }
     }
     
     if ($MissingSettings) {
-        $ErrorMessage = "Mandatory settings missing: $($MissingSettings -join ', ')"
+        $MissingSettings = $MissingSettings.Substring(2)
+        $ErrorMessage = "Mandatory settings missing: $MissingSettings"
         #Write-Log -Message $ErrorMessage -Level 'Error'
         throw [System.ArgumentException]::new($ErrorMessage)
     }
@@ -505,7 +506,8 @@ function Set-AovpnConnection {
     }
     catch [Exception] {
         $Message = "Unable to create $ProfileName profile: $_"
-        throw $Message
+        Write-Log -Message $Message -Level 'Error'
+        throw 
     }
 }
 
@@ -514,64 +516,58 @@ function Remove-AovpnConnection {
     .SYNOPSIS
     Function to remove a VPN connection
     .DESCRIPTION
-    This function removes an existing VPN connection with the specified profile name and cleans up registry artifacts.
-    .PARAMETER ProfileName
-    The name of the profile to be removed.
+    This function removes an existing VPN connection with the specified connection type and cleans up registry artifacts.
+    
     #>
     param(
-        [bool]$IsDevicetunnel
+        [bool]$IsDevicetunnel,
+        [Object]$CurrentConnection
     )
 
-    $namespaceName = "root\cimv2\mdm\dmmap"
-    $className = "MDM_VPNv2_01"
-
-    #Get Cim Instance for the connection
-    if($IsDevicetunnel){
-        $CurrentConnection = Get-CimInstance -Namespace $namespaceName -ClassName $className | Where-Object DeviceTunnel -eq "True" -ErrorAction SilentlyContinue
-    }
-    else{
-        $CurrentConnection = Get-CimInstance -Namespace $namespaceName -ClassName $className | Where-Object DeviceTunnel -ne "True" -ErrorAction SilentlyContinue
-    }
+    
+    $ProfileNameEscaped = $CurrentConnection.InstanceID 
+    $ProfileName = $ProfileNameEscaped.Replace("%20"," ") 
 
     #If nothing was found, return
     if(!$CurrentConnection){
-        Write-Log "No connection of this type found." -Level 'Info' 
-        Return
-    }
-
-    #Else extract name, delete and check if gone
-    $CurrentConnectionName = $CurrentConnection.InstanceID
-    Remove-CimInstance -CimInstance $CurrentConnection
-    if($IsDevicetunnel){
-        $CurrentConnection = Get-CimInstance -Namespace $namespaceName -ClassName $className | Where-Object DeviceTunnel -eq "True" -ErrorAction SilentlyContinue
+        Write-Log "No managed connection of this type found. Attempting Registry Cleanup..." -Level 'Info' 
     }
     else{
-        $CurrentConnection = Get-CimInstance -Namespace $namespaceName -ClassName $className | Where-Object DeviceTunnel -ne "True" -ErrorAction SilentlyContinue
+        # Else extract name, delete and check if gone (up to 3 retries)
+        
+        $RemovalRetries = 0
+        $namespaceName = "root\cimv2\mdm\dmmap"
+        $className = "MDM_VPNv2_01"
+
+        while($CurrentConnection -and ($RemovalRetries -lt 3)){
+            $RemovalRetries++
+            Remove-CimInstance -CimInstance $CurrentConnection
+
+            if($IsDevicetunnel){
+                $CurrentConnection = Get-CimInstance -Namespace $namespaceName -ClassName $className | Where-Object DeviceTunnel -eq "True" -ErrorAction SilentlyContinue
+            }
+            else{
+                $CurrentConnection = Get-CimInstance -Namespace $namespaceName -ClassName $className | Where-Object DeviceTunnel -ne "True" | Where-Object InstanceID -eq $ProfileNameEscaped -ErrorAction SilentlyContinue
+            }
+            
+        }
+
+        #At this point there should be no connection with same connectiontype configured so check if for some reason a connection still exists
+        if ($NULL -ne ($CurrentConnection)) {
+            throw -Message "A managed connection with the current connection type already exists and could not be removed. Instance ID: $ProfileNameEscaped. Aborting deployment." -Level 'Error'
+        }
+
+        Write-Log "Successfully removed VPNv2 Instance $ProfileNameEscaped. Starting Registry-Cleanup..." -Level 'Info' 
     }
 
-    #At this point there should be no connection with same connectiontype configured so check if for some reason a connection still exists
-    if ($NULL -ne ($CurrentConnection)) {
-        Write-Log -Message "A connection with the current connection type already exists and could not be removed. Instance ID: $CurrentConnectionName. Aborting deployment." -Level 'Error'
-        Continue main
-    }
-   
-    $ProfileNameEscaped = $CurrentConnectionName
-    $ProfileName = $ProfileNameEscaped.Replace("%20"," ") 
-    Write-Log "Successfully removed connection $ProfileName. Starting Registry-Cleanup..." -Level 'Info' 
-    #Clean-Up by Richard Hicks
 
-    # Registry clean-up
-    Write-Verbose "Cleaning up registry artifacts for VPN connection ""$ProfileName""..."
-
-    # Remove registry artifacts from ERM\Tracked
-    Write-Verbose "Searching ERM\Tracked for profile ""$ProfileNameEscaped""..."
-
+    # Based on Richard Hicks' "Remove-AovpnConnection.ps1"
+    # Reg-Cleanup HKLM:\SOFTWARE\Microsoft\EnterpriseResourceManager\Tracked
     $BasePath = "HKLM:\SOFTWARE\Microsoft\EnterpriseResourceManager\Tracked"
     $Tracked = Get-ChildItem -Path $BasePath
 
     ForEach ($Item in $Tracked) {
 
-        Write-Verbose "Processing $(Convert-Path $Item.PsPath)..."
         $Key = Get-ChildItem $Item.PsPath -Recurse | Where-Object { $_ | Get-ItemProperty -Include "Path*" }
         $PathCount = ($Key.Property -Match "Path\d+").Count
         Write-Verbose "Found a total of $PathCount ERM\Tracked entries."
@@ -636,17 +632,6 @@ function Remove-AovpnConnection {
 
         # Get the current registry values as an array of strings
         [string[]]$Current = Get-ItemPropertyValue -Path $Path -Name $Name -ErrorAction Stop
-
-    }
-
-    Catch {
-
-        Write-Verbose "$Name does not exist under $Path. No action required."
-
-    }
-
-    If ($Current) {
-
         # Create ordered hashtable
         $List = [Ordered]@{}
         $Current | ForEach-Object { $List.Add("$($_.ToLower())", $_) }
@@ -660,42 +645,26 @@ function Remove-AovpnConnection {
             Set-ItemProperty -Path $Path -Name $Name -Value $List.Values
 
         }
+    }
+
+    Catch {
+
+        Write-Verbose "$Name does not exist under $Path. No action required."
 
     }
 
-    Else {
 
-        Write-Verbose "No profiles found matching ""$ProfileName"" in the AutoTriggerDisabledProfilesList registry key."
-
-    }
-
-    # Remove registry artifacts from RasMan\DeviceTunnel
-    If ($DeviceTunnel) {
-
-        Write-Verbose 'Searching for entries in RasMan\DeviceTunnel...'
-        $Path = 'HKLM:\SYSTEM\CurrentControlSet\Services\RasMan\DeviceTunnel\'
-
-        If (Test-Path -Path $Path) {
-
-            Write-Verbose 'RasMan\DeviceTunnel found. Removing registry key...'
-            $Path = Get-Item -Path $Path
-            Remove-Item -Path $Path.PsPath -Recurse -Force
-
+    #Clean up HKLM:\SYSTEM\CurrentControlSet\Services\RasMan\DeviceTunnel\ if this was a device tunnel connection
+    If ($IsDeviceTunnel) {
+        $RegistryPath = Get-Item -Path 'HKLM:\SYSTEM\CurrentControlSet\Services\RasMan\DeviceTunnel\' -ErrorAction SilentlyContinue
+        If ($RegistryPath) {
+            Remove-Item -Path $RegistryPath.PsPath -Recurse -Force
         }
-
-        Else {
-
-            Write-Verbose 'RasMan\DeviceTunnel not found. No action required.'
-
-        }
-
     }
 
     Write-Log "Registry-Cleanup finished. Removal of connection $ProfileName is complete." -Level 'Info' 
 
 }
-
-
 
 
 :main foreach ($ConnectionTypeSettings in ($RegistrySettings | where Name -Notlike "*Current")) {
@@ -729,37 +698,55 @@ function Remove-AovpnConnection {
         $TargetPropertyValues = $ConnectionTypeSettings | Get-ItemProperty -ErrorAction SilentlyContinue
         $CurrentPropertyValues = $ConnectionTypeSettingsCurrent | Get-ItemProperty -ErrorAction SilentlyContinue
 
-        $TargetProfileName = $TargetPropertyValues.ProfileName
+        if($TargetPropertyValues.ProfileName){ 
+            $TargetProfileName = $TargetPropertyValues.ProfileName
+            $TargetProfileNameEscaped = $TargetProfileName.Replace(" ", "%20")
+        }
 
+        if($CurrentPropertyValues.ProfileName){ 
+            $CurrentProfileName = $CurrentPropertyValues.ProfileName
+            $CurrentProfileNameEscaped = $CurrentProfileName.Replace(" ", "%20")
+        }
+        
+       
 
         #Check if connection with same connection type exists
         $namespaceName = "root\cimv2\mdm\dmmap"
         $className = "MDM_VPNv2_01"
+
+        ## First try to find connection with profile name from current configuration, if that fails try to find connection with profile name from target configuration (in case profile name was changed in GPO and there is already a connection with the new profile name configured)
         if($IsDevicetunnel){
-            $CurrentConnection = Get-CimInstance -Namespace $namespaceName -ClassName $className | Where-Object DeviceTunnel -eq "True" -ErrorAction SilentlyContinue
+            $CurrentConnection = Get-CimInstance -Namespace $namespaceName -ClassName $className | Where-Object DeviceTunnel -eq "True" | Where-Object InstanceID -eq $CurrentProfileNameEscaped -ErrorAction SilentlyContinue
+            if($Null -eq $CurrentConnection){
+                $CurrentConnection = Get-CimInstance -Namespace $namespaceName -ClassName $className | Where-Object DeviceTunnel -eq "True" | Where-Object InstanceID -eq $TargetProfileNameEscaped -ErrorAction SilentlyContinue
+            }
         }
         else{
-            $CurrentConnection = Get-CimInstance -Namespace $namespaceName -ClassName $className | Where-Object DeviceTunnel -ne "True" -ErrorAction SilentlyContinue
-        }
+            $CurrentConnection = Get-CimInstance -Namespace $namespaceName -ClassName $className | Where-Object DeviceTunnel -ne "True" | Where-Object InstanceID -eq $CurrentProfileNameEscaped -ErrorAction SilentlyContinue
+            if($Null -eq $CurrentConnection){
+                $CurrentConnection = Get-CimInstance -Namespace $namespaceName -ClassName $className | Where-Object DeviceTunnel -ne "True" | Where-Object InstanceID -eq $TargetProfileNameEscaped -ErrorAction SilentlyContinue
+            }
+        } 
         
-
         ## If no settings are configured, remove connection
         if ($NULL -eq $TargetRegPropertyNames) {
-            Write-Log -Message "No settings were configured. Removing any connection with type $ConnectionTypeDisplayName..." -Level 'Info' 
+            Write-Log -Message "No settings were configured." -Level 'Info' 
 
             if($CurrentConnection){
-                Remove-AovpnConnection -IsDevicetunnel $IsDevicetunnel
+                Write-Log -Message "Removing previously configured connection..." -Level 'Info'
+                Remove-AovpnConnection -IsDevicetunnel $IsDevicetunnel -CurrentConnection $CurrentConnection -CurrentProfileName $CurrentProfileNameEscaped
+                
             }
-            Remove-Item -Path "$RegistryPath\Current" -ErrorAction SilentlyContinue
+            Remove-Item -Path "$RegistryPath" -Recurse -ErrorAction SilentlyContinue
             Continue Main
         }
         
 
-        # Check mandatory settings
+        ## Check mandatory settings
         Write-Log -Message "Running check for mandatory Settings..." -Level 'Info' 
         Test-AovpnConfiguration -TargetPropertyValues $TargetPropertyValues -DeviceTunnel $IsDevicetunnel
         
-        # If it does not exist, create 'Current' Reg-Key 
+        ## If it does not exist, create 'Current' Reg-Key 
         if (!$ConnectionTypeSettingsCurrent) {
             New-Item -Path ($RegistryPath+"\Current") -Force | Out-Null
             
@@ -780,7 +767,7 @@ function Remove-AovpnConnection {
         # If there were configuration differences, remove outdated connection with ProfileName
         if ($ConfigurationDifferencesExist) {
             Write-Log -Message "Removing currently configured $ConnectionTypeDisplayName..." -Level 'Info' 
-            Remove-AovpnConnection -IsDevicetunnel $IsDevicetunnel
+            Remove-AovpnConnection -IsDevicetunnel $IsDevicetunnel -CurrentConnection $CurrentConnection -CurrentProfileName $CurrentProfileNameEscaped
         }
 
         #Create VPN-Connection from Profile.xml
@@ -840,4 +827,8 @@ function Remove-AovpnConnection {
 
 }
 
-
+# Remove GPO registry key if there are no more connections configured
+$RemainingConnections = Get-ChildItem -Path "HKLM:\SOFTWARE\Policies\AovpnFromGPO\" -Recurse -ErrorAction SilentlyContinue
+if (!$RemainingConnections) {
+    Remove-Item -Path "HKLM:\SOFTWARE\Policies\AovpnFromGPO\" -Recurse -Force -ErrorAction SilentlyContinue
+}

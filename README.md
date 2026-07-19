@@ -5,19 +5,16 @@ Manage Microsoft Always on VPN connections with Group Policies!
 
 ## Description
 
-The native Windows VPN client provides sufficient capabilities for most Remote Access scenarios and even provides device level VPN capabilities in enterprise environments. With Intune managed devices, these base settings for these VPN connections can easily be configured through Configuration Profiles.
-
-Unfortunately, there is no easy way to configure these VPN connections when your clients are members of an Active Directory Domain that is On-Prem only. Also, some settings are not available in Intune either.
-
-Microsofts recommendation for those scenarios is creating XML-Files that include the VPN-settings and deploying these VPN profiles with a Powershell script.
+The native Windows VPN client provides sufficient capabilities for most Remote Access scenarios and even provides device level VPN capabilities in enterprise environments. To unlock the full range of features, Microsoft provides a single method of deployment: creating XML-based files containing the VPN settings and deploying these VPN profiles with a Powershell script.
 
 This recommended procedure leaves open a lot of questions, for exampe:
+
 - How do administrators centrally deploy the VPN connections?
 - How can these connections be changed after they have been deployed?
 - How do administrators remove VPN connections from clients?
 - How can administrators safely change the VPN connection settings for clients that are currently connected remotely?
   
-This project attempts to answer these questions by providing easy Microsoft Always on VPN managability through Group Policy settings. The settings are then validated and deployed by a Powershell script.
+This project attempts to answer these questions by providing easy Microsoft Always on VPN managability through Group Policy settings. 
 
 ## Features
 ### Configuration
@@ -26,10 +23,11 @@ This project attempts to answer these questions by providing easy Microsoft Alwa
   - **Device Tunnel**: VPN connection at system boot (machine-level)
   - **All User Connection (AUC)**: VPN connection for all user logons (user-level)
 - Per-User VPNs are NOT supported - only system wide user VPN connections can be configured
+- One Device Tunnel and one AUC can be managed at a time by AovpnFromGPO
 
 ### Profile Building
 - Constructs XML-based VPN profiles based on GPO settings and creates a connection from the profile all within the script
-- Supported Settings:
+- Overview over supported settings:
   
 | Setting                               |Devicetunnel   |Usertunnel |
 | :---                                  |    :----:     |   :---:   |
@@ -51,7 +49,7 @@ This project attempts to answer these questions by providing easy Microsoft Alwa
 
 ### Connection Management
 - Creates new VPN connections using the MDM_VPNv2 WMI class
-- Validates all mandatory settings have been configured
+- Checks all mandatory settings have been configured
 - Detects and compares existing configurations
 - Updates connections when configuration changes are detected
 - Removes old connections before deploying new ones
@@ -63,10 +61,10 @@ This project attempts to answer these questions by providing easy Microsoft Alwa
   - `AOVPN_DT_LOG.txt` (Device Tunnel)
   - `AOVPN_AUC_LOG.txt` (All User Connection)
 - Logs operations with timestamps and severity levels (Info, Error)
-- Automatically trims logs to prevent excessive file growth (max 1000 lines)
+- Automatically trims logs to prevent excessive file growth
 - Log file location, name and length customizable
 
-## Prerequisites
+## Requirements
 
 - **PowerShell 5.1 or later**
 - **Windows 10 1809 or later**
@@ -84,9 +82,9 @@ This project attempts to answer these questions by providing easy Microsoft Alwa
 3. Create and share a directory that contains [Set-AovpnFromGPO.ps1](https://github.com/astang0/AovpnFromGPO/blob/main/Set-AovpnFromGPO.ps1).
 4. Through a scheduling mechanism of your choice do the following regularly (schedule depending on your needs):
 
-    4.1 Sync the contents of the shared folder to a local directory on the devices that AOVPN should be deployed on.
+    4.1 Sync the contents of the shared folder to a local directory on the devices that AOVPN should be deployed on. (Optional, but is recommended)
 
-    4.2 Run Set-AovpnFromGPO.ps1 in SYSTEM context with params of your choice.
+    4.2 Run Set-AovpnFromGPO.ps1 from local or shared folder in SYSTEM context.
 
 5. Add users or computers to your AD group and wait until all settings have been synced.
    
@@ -96,7 +94,9 @@ This project attempts to answer these questions by providing easy Microsoft Alwa
    <br/>The script will remove the connection if there are no settings configured in the GPO.
 
 
-Warning: Running the script without any settings configured **will remove any existing Microsoft Always On VPN Devicetunnel and/or All User Connection.** This is by design to automatically remove the VPN connection from the client if no GPOs are applied. 
+- Running the script without GPO configuration does nothing. 
+- Start managing existing connections by reusing the name of the existing connection in the Group Policies
+Alternatively use the same connection name to start managing the existing connection.
 
 ## Considerations
 
@@ -108,9 +108,8 @@ Warning: Running the script without any settings configured **will remove any ex
    - Use PsExec, scheduled tasks or other mechanisms ensure SYSTEM execution
 
 2. **Destructive Updates**
-   - When configuration changes are detected, **existing VPN connections are removed and recreated**
+   - When configuration changes are detected, **existing AovpnFromGPO-managed VPN connections are removed and recreated**
    - Any VPN-related registry artifacts are cleaned up during this process
-   - User manual VPN connections of the same type may be affected
 
 3. **Connection Type Filtering**
    - The script distinguishes connections by the conncection type
@@ -124,12 +123,8 @@ Warning: Running the script without any settings configured **will remove any ex
    - If no previous configuration exists, the original error is thrown
 
 5. **Registry Cleanup**
-   - When removing connections, the script cleans up registry artifacts from:
-     - `ERM\Tracked`
-     - `NetworkList\Profiles`
-     - `RasMan\Config`
-     - `RasMan\DeviceTunnel` (Device Tunnel only)
-   - This is comprehensive but may affect manually created VPN profiles with the same name
+   - When removing connections, the script cleans up registry artifacts 
+   - May affect manually created VPN profiles with the same name
 
 6. **Multi-String Registry Values**
    - Properties like `Routes` and `TrustedNetworkDetection` are multi-string values
@@ -137,8 +132,8 @@ Warning: Running the script without any settings configured **will remove any ex
 
 7. **Protocol Selection**
    - Device Tunnel always uses **IKEv2**
-   - All User Connection uses **Automatic** protocol selection
-   - Cannot currently not be customized; hardcoded in the script
+   - All User Connection uses **Automatic** protocol selection, which means SSTP with IKEv2 as fallback protocol
+   - Cannot currently not be customized
 
 8. **Split Tunnel Routing**
    - Script always uses **SplitTunnel** routing policy
@@ -153,7 +148,7 @@ Warning: Running the script without any settings configured **will remove any ex
 
 10. **Log File Management**
     - Log files are created in the script's working directory
-    - Maximum log size is 1000 lines; older entries are removed automatically
+    - Default maximum log size is 1000 lines; older entries are removed automatically -> can be adjusted in beginning of script
     - Device Tunnel and AUC have separate log files
     - Custom log file location, name and length can be configured in the starting section of the script
 
@@ -178,7 +173,9 @@ Warning: Running the script without any settings configured **will remove any ex
 
 
 ## Further Developement
-My goal is to provide Group Policy settings for all the features available with XML-based configuration files. Feel free to reach out if there are any features you are missing or if there are any issues you are experiencing when using Always On VPN from GPO.
 
+This project currently includes all the functionality needed to deploy basic VPN profiles to Windows clients but does not yet include all available configuration options.
+
+If there is anything you would like to have included feel free to reach out.
 
 
