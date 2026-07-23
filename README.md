@@ -1,7 +1,7 @@
-# Always on VPN From GPO
+# Group Policies for the Windows native VPN-Client 
 ## Synopsis
 
-Manage Microsoft Always on VPN connections with Group Policies! 
+Easy Windows VPN management with **G**POs for the **Wi**ndows **na**tive **VPN** client (GwinaVPN)!
 
 ## Description
 
@@ -14,7 +14,9 @@ This recommended procedure leaves open a lot of questions, for exampe:
 - How do administrators remove VPN connections from clients?
 - How can administrators safely change the VPN connection settings for clients that are currently connected remotely?
   
-This project attempts to answer these questions by providing easy Microsoft Always on VPN managability through Group Policy settings. 
+This project attempts to answer these questions by providing Windows VPN Client managability through Group Policy settings. 
+
+P.S.: This project was created with Microsoft Always On VPN connections in mind so most of the current functionality is targeted towards that specific use case.
 
 ## Features
 ### Configuration
@@ -23,7 +25,7 @@ This project attempts to answer these questions by providing easy Microsoft Alwa
   - **Device Tunnel**: VPN connection at system boot (machine-level)
   - **All User Connection (AUC)**: VPN connection for all user logons (user-level)
 - Per-User VPNs are NOT supported - only system wide user VPN connections can be configured
-- One Device Tunnel and one AUC can be managed at a time by AovpnFromGPO
+- One Device Tunnel and one AUC can be managed at a time by GwinaVPN
 
 ### Profile Building
 - Constructs XML-based VPN profiles based on GPO settings and creates a connection from the profile all within the script
@@ -58,8 +60,8 @@ This project attempts to answer these questions by providing easy Microsoft Alwa
 
 ### Logging
 - Creates separate log files for each connection type in same directory the script is run from:
-  - `AOVPN_DT_LOG.txt` (Device Tunnel)
-  - `AOVPN_AUC_LOG.txt` (All User Connection)
+  - `GwinaVPN_DT_LOG.txt` (Device Tunnel)
+  - `GwinaVPN_AUC_LOG.txt` (All User Connection)
 - Logs operations with timestamps and severity levels (Info, Error)
 - Automatically trims logs to prevent excessive file growth
 - Log file location, name and length customizable
@@ -76,15 +78,15 @@ This project attempts to answer these questions by providing easy Microsoft Alwa
    
 2. Create a GPO, filter it to a newly created Active Directory Group and configure (at least) the mandatory settings under Computer Configuration/Administrative Templates/Always On VPN From GPO/[Connection Type]:
 
-![DT-Settings.png](https://github.com/astang0/AovpnFromGPO/blob/main/src/DT-Settings.png)
+![DT-Settings.png](https://github.com/astang0/GwinaVPN/blob/main/src/DT-Settings.png)
 
 
-3. Create and share a directory that contains [Set-AovpnFromGPO.ps1](https://github.com/astang0/AovpnFromGPO/blob/main/Set-AovpnFromGPO.ps1).
+3. Create and share a directory that contains [Set-GwinaVPN.ps1](https://github.com/astang0/GwinaVPN/blob/main/Set-GwinaVPN.ps1).
 4. Through a scheduling mechanism of your choice do the following regularly (schedule depending on your needs):
 
-    4.1 Sync the contents of the shared folder to a local directory on the devices that AOVPN should be deployed on. (Optional, but is recommended)
+    4.1 Sync the contents of the shared folder to a local directory on the devices that the VPN connection should be deployed on. (Optional, but is recommended)
 
-    4.2 Run Set-AovpnFromGPO.ps1 from local or shared folder in SYSTEM context.
+    4.2 Run Set-GwinaVPN.ps1 from local or shared folder in SYSTEM context.
 
 5. Add users or computers to your AD group and wait until all settings have been synced.
    
@@ -108,7 +110,7 @@ Alternatively use the same connection name to start managing the existing connec
    - Use PsExec, scheduled tasks or other mechanisms ensure SYSTEM execution
 
 2. **Destructive Updates**
-   - When configuration changes are detected, **existing AovpnFromGPO-managed VPN connections are removed and recreated**
+   - When configuration changes are detected, **existing GwinaVPN-managed VPN connections are removed and recreated**
    - Any VPN-related registry artifacts are cleaned up during this process
 
 3. **Connection Type Filtering**
@@ -163,7 +165,7 @@ Alternatively use the same connection name to start managing the existing connec
     - Malformed XML will cause profile creation to fail
 
 13. **Always On**
-    - Script currently always deploys connections as "Always On" (hence the projects' name...), meaning the VPN client will automatically start the VPN connection anytime an untrusted network is detected 
+    - Script currently always deploys connections as "Always On", meaning the VPN client will automatically start the VPN connection anytime an untrusted network is detected 
 
 ## Security Considerations
 
@@ -176,6 +178,6 @@ Alternatively use the same connection name to start managing the existing connec
 
 This project currently includes all the functionality needed to deploy basic VPN profiles to Windows clients but does not yet include all available configuration options.
 
-If there is anything you would like to have included feel free to reach out.
+I will keep adding more features over time but if there is anything specific you would like to have included feel free to reach out.
 
 

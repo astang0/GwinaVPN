@@ -1,18 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--  2024 Anthony Stang  -->
 <policyDefinitionResources xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" revision="1.0" schemaVersion="1.0" xmlns="http://schemas.microsoft.com/GroupPolicy/2006/07/PolicyDefinitions">
-  <displayName>Always On VPN</displayName>
-  <description>Settings for Always on VPN connections.
+  <displayName>Gwina VPN</displayName>
+  <description>Group Policy Settings for the Windows native VPN client.
 
 Most settings are only effective if the provided script is used for deployment.
   </description>
   <resources>
     <stringTable>
-      <string id="AOVPN_Name">Always On VPN From GPO</string>
-      <string id="AOVPN_Explain">Policies for Microsoft Always On VPN connections.
+      <string id="GwinaVPN_Name">GwinaVPN</string>
+      <string id="GwinaVPN_Explain">Group Policy Settings for the Windows native VPN client.
       
-The policies are only effective if used with Set-AovpnFromGPO.ps1 available here:
-https://github.com/astang0/AovpnFromGPO/blob/main/Set-AovpnFromGPO.ps1</string>
+The policies are only effective if used with Set-GwinaVPN.ps1 available here:
+https://github.com/astang0/GwinaVPN/blob/main/Set-GwinaVPN.ps1</string>
 
       <string id="DeviceTunnel_Name">Devicetunnel</string>
       <string id="DeviceTunnel_Explain">Policies that allow you to create a Microsoft Always On VPN Devicetunnel.

@@ -2,10 +2,10 @@
 
 <#
 .SYNOPSIS
-Creates a Microsoft Always On VPN Profile based on values stored in the registry.
+Creates a VPN-Profile for the Windows native VPN client based on values stored in the registry.
 
 .DESCRIPTION
-This script uses values stored in the registry to build an MS-AOVPN-Profile.
+This script uses values stored in the registry to build a VPN profile for the Windows native VPN client.
 The profile is then used to create a new VPN connection.
 
 #>
@@ -20,12 +20,12 @@ Param (
 Set-Location $PSScriptRoot
 
 ## Set-Variables for log file.
-$LogfileDT = ".\AOVPN_DT_LOG.txt"
-$LogfileAUC = ".\AOVPN_AUC_LOG.txt"
+$LogfileDT = ".\GwinaVPN_DT_LOG.txt"
+$LogfileAUC = ".\GwinaVPN_AUC_LOG.txt"
 $MaxLogLength = 1000
 
 ## Fetch Registry Settings for both User and Device Tunnel
-$RegistrySettings = Get-ChildItem -Path "HKLM:\SOFTWARE\Policies\AovpnFromGPO\" -Recurse -ErrorAction SilentlyContinue
+$RegistrySettings = Get-ChildItem -Path "HKLM:\SOFTWARE\Policies\astang0\GwinaVPN" -Recurse -ErrorAction SilentlyContinue
 
 
 ## Check if script is running in correct context
@@ -310,7 +310,7 @@ function Build-ConfigfromGPO {
 }
 
 
-function Test-AovpnConfiguration {
+function Test-GwinaVpnConfiguration {
     <#
     .SYNOPSIS
     Function to check if mandatory settings have been set
@@ -382,7 +382,7 @@ function Format-XML ([xml]$xml, $indent = 3, $format = "Indented") {
     Write-Output $StringWriter.ToString()
 }
 
-function Compare-AovpnConfiguration {
+function Compare-GwinaVpnConfiguration {
     <#
     .SYNOPSIS
     Function to compare VPN configurations
@@ -462,7 +462,7 @@ function Compare-AovpnConfiguration {
     Return $ConfigurationDifferencesExist
 }
 
-function Set-AovpnConnection {
+function Set-GwinaVpnConnection  {
     <#
     .SYNOPSIS
     Function to add a new VPN connection
@@ -511,7 +511,7 @@ function Set-AovpnConnection {
     }
 }
 
-function Remove-AovpnConnection {
+function Remove-GwinaVpnConnection {
     <#
     .SYNOPSIS
     Function to remove a VPN connection
@@ -667,7 +667,7 @@ function Remove-AovpnConnection {
 }
 
 
-:main foreach ($ConnectionTypeSettings in ($RegistrySettings | where Name -Notlike "*Current")) {
+:main foreach ($ConnectionTypeSettings in ($RegistrySettings | where {($_.Name -like "*Devicetunnel") -or ($_.Name -like "*AllUserConnection")})) {
 
     try {
         #Determine connection type and set variables accordingly
@@ -690,12 +690,16 @@ function Remove-AovpnConnection {
         Write-Log -Message "Starting processing for $ConnectionTypeDisplayName connection..." -Level 'Info'
         #Set variables for current and target configuration
         $RegistryPath = $ConnectionTypeSettings.PSPath
-        $ConnectionTypeSettingsCurrent = $RegistrySettings | where Name -like ($ConnectionTypeSettings.Name + "*Current")
+        $TargetPath = $RegistryPath + "\Target"
+        $CurrentPath = $RegistryPath + "\Current"
 
-        $TargetRegPropertyNames =  $ConnectionTypeSettings | Select-Object -ExpandProperty Property -ErrorAction SilentlyContinue | Sort-Object
+        $ConnectionTypeSettingsTarget = $RegistrySettings | where PSPath -like $TargetPath
+        $ConnectionTypeSettingsCurrent = $RegistrySettings | where PSPath -like $CurrentPath
+
+        $TargetRegPropertyNames =  $ConnectionTypeSettingsTarget | Select-Object -ExpandProperty Property -ErrorAction SilentlyContinue | Sort-Object
         $CurrentRegPropertyNames = $ConnectionTypeSettingsCurrent | Select-Object -ExpandProperty Property -ErrorAction SilentlyContinue | Sort-Object
 
-        $TargetPropertyValues = $ConnectionTypeSettings | Get-ItemProperty -ErrorAction SilentlyContinue
+        $TargetPropertyValues = $ConnectionTypeSettingsTarget | Get-ItemProperty -ErrorAction SilentlyContinue
         $CurrentPropertyValues = $ConnectionTypeSettingsCurrent | Get-ItemProperty -ErrorAction SilentlyContinue
 
         if($TargetPropertyValues.ProfileName){ 
@@ -734,7 +738,7 @@ function Remove-AovpnConnection {
 
             if($CurrentConnection){
                 Write-Log -Message "Removing previously configured connection..." -Level 'Info'
-                Remove-AovpnConnection -IsDevicetunnel $IsDevicetunnel -CurrentConnection $CurrentConnection -CurrentProfileName $CurrentProfileNameEscaped
+                Remove-GwinaVpnConnection -IsDevicetunnel $IsDevicetunnel -CurrentConnection $CurrentConnection -CurrentProfileName $CurrentProfileNameEscaped
                 
             }
             Remove-Item -Path "$RegistryPath" -Recurse -ErrorAction SilentlyContinue
@@ -744,7 +748,7 @@ function Remove-AovpnConnection {
 
         ## Check mandatory settings
         Write-Log -Message "Running check for mandatory Settings..." -Level 'Info' 
-        Test-AovpnConfiguration -TargetPropertyValues $TargetPropertyValues -DeviceTunnel $IsDevicetunnel
+        Test-GwinaVpnConfiguration -TargetPropertyValues $TargetPropertyValues -DeviceTunnel $IsDevicetunnel
         
         ## If it does not exist, create 'Current' Reg-Key 
         if (!$ConnectionTypeSettingsCurrent) {
@@ -755,7 +759,7 @@ function Remove-AovpnConnection {
         else {
             #If there is connection with same connection type, run configuration comparison
             if ($null -ne $CurrentConnection) {
-                $ConfigurationDifferencesExist = Compare-AovpnConfiguration -TargetPropertyValues $TargetPropertyValues -CurrentPropertyValues $CurrentPropertyValues -TargetRegPropertyNames $TargetRegPropertyNames -CurrentRegPropertyNames $CurrentRegPropertyNames
+                $ConfigurationDifferencesExist = Compare-GwinaVpnConfiguration -TargetPropertyValues $TargetPropertyValues -CurrentPropertyValues $CurrentPropertyValues -TargetRegPropertyNames $TargetRegPropertyNames -CurrentRegPropertyNames $CurrentRegPropertyNames
             } 
         }
 
@@ -767,13 +771,13 @@ function Remove-AovpnConnection {
         # If there were configuration differences, remove outdated connection with ProfileName
         if ($ConfigurationDifferencesExist) {
             Write-Log -Message "Removing currently configured $ConnectionTypeDisplayName..." -Level 'Info' 
-            Remove-AovpnConnection -IsDevicetunnel $IsDevicetunnel -CurrentConnection $CurrentConnection -CurrentProfileName $CurrentProfileNameEscaped
+            Remove-GwinaVpnConnection -IsDevicetunnel $IsDevicetunnel -CurrentConnection $CurrentConnection -CurrentProfileName $CurrentProfileNameEscaped
         }
 
         #Create VPN-Connection from Profile.xml
         Write-Log -Message "Creating new connection..." -Level 'Info' 
         try {
-            Set-AovpnConnection -ProfileName $TargetProfileName
+            Set-GwinaVpnConnection  -ProfileName $TargetProfileName
         }
         catch {
             
@@ -787,7 +791,7 @@ function Remove-AovpnConnection {
                 $TargetProfileName = $CurrentConnection.InstanceID.Replace("%20"," ")
 
                 # Create VPN-Connection from Profile.xml
-                Set-AovpnConnection -ProfileName $TargetProfileName
+                Set-GwinaVpnConnection  -ProfileName $TargetProfileName
 
                 # Skip rest of script as we have reverted to previous configuration and do not want to overwrite the registry values
                 Continue Main
@@ -802,12 +806,12 @@ function Remove-AovpnConnection {
 
         #Remove properties from 'Current' key 
         foreach ($property in $CurrentRegPropertyNames) {
-            Remove-ItemProperty -Path "$RegistryPath\Current" -Name $Property
+            Remove-ItemProperty -Path $CurrentPath -Name $Property
         }
         
         #Then copy values from 'target' to 'current'
         foreach ($Property in $TargetRegPropertyNames) {
-            Copy-ItemProperty -Path $RegistryPath -Destination "$RegistryPath\Current" -Name $Property
+            Copy-ItemProperty -Path $TargetPath -Destination $CurrentPath -Name $Property
         }
     }
     catch {
@@ -828,7 +832,7 @@ function Remove-AovpnConnection {
 }
 
 # Remove GPO registry key if there are no more connections configured
-$RemainingConnections = Get-ChildItem -Path "HKLM:\SOFTWARE\Policies\AovpnFromGPO\" -Recurse -ErrorAction SilentlyContinue
+$RemainingConnections = Get-ChildItem -Path "HKLM:\SOFTWARE\Policies\astang0\GwinaVPN" -Recurse -ErrorAction SilentlyContinue
 if (!$RemainingConnections) {
-    Remove-Item -Path "HKLM:\SOFTWARE\Policies\AovpnFromGPO\" -Recurse -Force -ErrorAction SilentlyContinue
+    Remove-Item -Path "HKLM:\SOFTWARE\Policies\astang0\GwinaVPN" -Recurse -Force -ErrorAction SilentlyContinue
 }

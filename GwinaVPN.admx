@@ -4,7 +4,7 @@
   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" revision="1.0" schemaVersion="1.0"
   xmlns="http://schemas.microsoft.com/GroupPolicy/2006/07/PolicyDefinitions">
   <policyNamespaces>
-    <target prefix="windows" namespace="AlwaysOnVPN.Policies.Common" />
+    <target prefix="windows" namespace="GwinaVPN.Policies.Common" />
   </policyNamespaces>
   <resources minRequiredRevision="1.0" />
   <supportedOn>
@@ -32,19 +32,19 @@
 
   <categories>
     <category
-      name="AOVPN" 
-      displayName="$(string.AOVPN_Name)"
-      explainText="$(string.AOVPN_Explain)">
+      name="GwinaVPN" 
+      displayName="$(string.GwinaVPN_Name)"
+      explainText="$(string.GwinaVPN_Explain)">
     </category>
     <category name="DeviceTunnel" 
     displayName="$(string.DeviceTunnel_Name)" 
     explainText="$(string.DeviceTunnel_Explain)">
-      <parentCategory ref="AOVPN" />
+      <parentCategory ref="GwinaVPN" />
     </category>
     <category name="AllUserConnection" 
     displayName="$(string.AllUserConnection_Name)"
     explainText="$(string.AllUserConnection_Explain)">
-      <parentCategory ref="AOVPN" />
+      <parentCategory ref="GwinaVPN" />
     </category>
   </categories>
 
@@ -58,7 +58,7 @@
       displayName="$(string.DNSSuffix_Name)"
       explainText="$(string.DNSSuffix_Explain)"
       presentation="$(presentation.DNSSuffix)"
-      key="SOFTWARE\Policies\AovpnFromGPO\Devicetunnel"
+      key="SOFTWARE\Policies\astang0\GwinaVPN\Devicetunnel\Target"
     >
 
       <parentCategory ref="DeviceTunnel" />
@@ -75,7 +75,7 @@
       displayName="$(string.TrustedNetworkDetection_Name)"
       explainText="$(string.TrustedNetworkDetection_Explain)"
       presentation="$(presentation.TrustedNetworkDetection)"
-      key="SOFTWARE\Policies\AovpnFromGPO\Devicetunnel"
+      key="SOFTWARE\Policies\astang0\GwinaVPN\Devicetunnel\Target"
     >
 
       <parentCategory ref="DeviceTunnel" />
@@ -93,7 +93,7 @@
       displayName="$(string.DisableDisconnectButton_Name)"
       explainText="$(string.DisableDisconnectButton_Explain)"
       presentation="$(presentation.DisableDisconnectButton)"
-      key="SOFTWARE\Policies\AovpnFromGPO\Devicetunnel"
+      key="SOFTWARE\Policies\astang0\GwinaVPN\Devicetunnel\Target"
       valueName="DisableDisconnectButton">
 
       <parentCategory ref="DeviceTunnel" />
@@ -136,7 +136,7 @@
       displayName="$(string.DisableAdvancedOptionsEditButton_Name)"
       explainText="$(string.DisableAdvancedOptionsEditButton_Explain)"
       presentation="$(presentation.DisableAdvancedOptionsEditButton)"
-      key="SOFTWARE\Policies\AovpnFromGPO\Devicetunnel"
+      key="SOFTWARE\Policies\astang0\GwinaVPN\Devicetunnel\Target"
       valueName="DisableAdvancedOptionsEditButton">
 
       <parentCategory ref="DeviceTunnel" />
@@ -157,7 +157,7 @@
       displayName="$(string.DisableClassBasedDefaultRoute_Name)"
       explainText="$(string.DisableClassBasedDefaultRoute_Explain)"
       presentation="$(presentation.DisableClassBasedDefaultRoute)"
-      key="SOFTWARE\Policies\AovpnFromGPO\Devicetunnel"
+      key="SOFTWARE\Policies\astang0\GwinaVPN\Devicetunnel\Target"
       valueName="DisableClassBasedDefaultRoute">
 
       <parentCategory ref="DeviceTunnel" />
@@ -179,7 +179,7 @@
       displayName="$(string.RegisterDNS_Name)"
       explainText="$(string.RegisterDNS_Explain)"
       presentation="$(presentation.RegisterDNS)"
-      key="SOFTWARE\Policies\AovpnFromGPO\Devicetunnel"
+      key="SOFTWARE\Policies\astang0\GwinaVPN\Devicetunnel\Target"
       valueName="RegisterDNS">
 
       <parentCategory ref="DeviceTunnel" />
@@ -200,7 +200,7 @@
       displayName="$(string.Servers_Name)"
       explainText="$(string.Servers_Explain)"
       presentation="$(presentation.Servers)"
-      key="SOFTWARE\Policies\AovpnFromGPO\Devicetunnel"
+      key="SOFTWARE\Policies\astang0\GwinaVPN\Devicetunnel\Target"
     >
 
       <parentCategory ref="DeviceTunnel" />
@@ -218,7 +218,7 @@
       displayName="$(string.IKEv2Settings_Name)"
       explainText="$(string.IKEv2Settings_Explain)"
       presentation="$(presentation.IKEv2Settings)"
-      key="SOFTWARE\Policies\AovpnFromGPO\Devicetunnel"
+      key="SOFTWARE\Policies\astang0\GwinaVPN\Devicetunnel\Target"
     >
 
       <parentCategory ref="DeviceTunnel" />
@@ -434,7 +434,7 @@
       displayName="$(string.Routes_Name)"
       explainText="$(string.Routes_Explain)"
       presentation="$(presentation.Routes)"
-      key="SOFTWARE\Policies\AovpnFromGPO\Devicetunnel"
+      key="SOFTWARE\Policies\astang0\GwinaVPN\Devicetunnel\Target"
     >
 
       <parentCategory ref="DeviceTunnel" />
@@ -451,7 +451,7 @@
       displayName="$(string.Dni_Name)"
       explainText="$(string.Dni_Explain)"
       presentation="$(presentation.Dni)"
-      key="SOFTWARE\Policies\AovpnFromGPO\Devicetunnel"
+      key="SOFTWARE\Policies\astang0\GwinaVPN\Devicetunnel\Target"
     >
 
       <parentCategory ref="DeviceTunnel" />
@@ -468,7 +468,7 @@
       displayName="$(string.TrafficFiltersXml_Name)"
       explainText="$(string.TrafficFiltersXml_Explain)"
       presentation="$(presentation.TrafficFiltersXml)"
-      key="SOFTWARE\Policies\AovpnFromGPO\Devicetunnel"
+      key="SOFTWARE\Policies\astang0\GwinaVPN\Devicetunnel\Target"
     >
 
       <parentCategory ref="DeviceTunnel" />
@@ -485,7 +485,7 @@
       displayName="$(string.ProfileName_Name)"
       explainText="$(string.ProfileName_Explain)"
       presentation="$(presentation.ProfileName)"
-      key="SOFTWARE\Policies\AovpnFromGPO\Devicetunnel"
+      key="SOFTWARE\Policies\astang0\GwinaVPN\Devicetunnel\Target"
     >
 
       <parentCategory ref="DeviceTunnel" />
@@ -505,7 +505,7 @@
       displayName="$(string.EapConfig_Name)"
       explainText="$(string.EapConfig_Explain)"
       presentation="$(presentation.EapConfig)"
-      key="SOFTWARE\Policies\AovpnFromGPO\AllUserConnection"
+      key="SOFTWARE\Policies\astang0\GwinaVPN\AllUserConnection\Target"
     >
 
       <parentCategory ref="AllUserConnection" />
@@ -523,7 +523,7 @@
       displayName="$(string.DNSSuffix_Name)"
       explainText="$(string.DNSSuffix_Explain)"
       presentation="$(presentation.DNSSuffix)"
-      key="SOFTWARE\Policies\AovpnFromGPO\AllUserConnection"
+      key="SOFTWARE\Policies\astang0\GwinaVPN\AllUserConnection\Target"
     >
 
       <parentCategory ref="AllUserConnection" />
@@ -540,7 +540,7 @@
       displayName="$(string.TrustedNetworkDetection_Name)"
       explainText="$(string.TrustedNetworkDetection_Explain)"
       presentation="$(presentation.TrustedNetworkDetection)"
-      key="SOFTWARE\Policies\AovpnFromGPO\AllUserConnection"
+      key="SOFTWARE\Policies\astang0\GwinaVPN\AllUserConnection\Target"
     >
 
       <parentCategory ref="AllUserConnection" />
@@ -558,7 +558,7 @@
       displayName="$(string.DisableDisconnectButton_Name)"
       explainText="$(string.DisableDisconnectButton_Explain)"
       presentation="$(presentation.DisableDisconnectButton)"
-      key="SOFTWARE\Policies\AovpnFromGPO\AllUserConnection"
+      key="SOFTWARE\Policies\astang0\GwinaVPN\AllUserConnection\Target"
       valueName="DisableDisconnectButton">
 
       <parentCategory ref="AllUserConnection" />
@@ -580,7 +580,7 @@
       displayName="$(string.DisableAdvancedOptionsEditButton_Name)"
       explainText="$(string.DisableAdvancedOptionsEditButton_Explain)"
       presentation="$(presentation.DisableAdvancedOptionsEditButton)"
-      key="SOFTWARE\Policies\AovpnFromGPO\AllUserConnection"
+      key="SOFTWARE\Policies\astang0\GwinaVPN\AllUserConnection\Target"
       valueName="DisableAdvancedOptionsEditButton">
 
       <parentCategory ref="AllUserConnection" />
@@ -601,7 +601,7 @@
       displayName="$(string.DisableClassBasedDefaultRoute_Name)"
       explainText="$(string.DisableClassBasedDefaultRoute_Explain)"
       presentation="$(presentation.DisableClassBasedDefaultRoute)"
-      key="SOFTWARE\Policies\AovpnFromGPO\AllUserConnection"
+      key="SOFTWARE\Policies\astang0\GwinaVPN\AllUserConnection\Target"
       valueName="DisableClassBasedDefaultRoute">
 
       <parentCategory ref="AllUserConnection" />
@@ -623,7 +623,7 @@
       displayName="$(string.RegisterDNS_Name)"
       explainText="$(string.RegisterDNS_Explain)"
       presentation="$(presentation.RegisterDNS)"
-      key="SOFTWARE\Policies\AovpnFromGPO\AllUserConnection"
+      key="SOFTWARE\Policies\astang0\GwinaVPN\AllUserConnection\Target"
       valueName="RegisterDNS">
 
       <parentCategory ref="AllUserConnection" />
@@ -644,7 +644,7 @@
       displayName="$(string.Servers_Name)"
       explainText="$(string.Servers_Explain)"
       presentation="$(presentation.Servers)"
-      key="SOFTWARE\Policies\AovpnFromGPO\AllUserConnection"
+      key="SOFTWARE\Policies\astang0\GwinaVPN\AllUserConnection\Target"
     >
 
       <parentCategory ref="AllUserConnection" />
@@ -662,7 +662,7 @@
       displayName="$(string.Routes_Name)"
       explainText="$(string.Routes_Explain)"
       presentation="$(presentation.Routes)"
-      key="SOFTWARE\Policies\AovpnFromGPO\AllUserConnection"
+      key="SOFTWARE\Policies\astang0\GwinaVPN\AllUserConnection\Target"
     >
 
       <parentCategory ref="AllUserConnection" />
@@ -679,7 +679,7 @@
       displayName="$(string.Dni_Name)"
       explainText="$(string.Dni_Explain)"
       presentation="$(presentation.Dni)"
-      key="SOFTWARE\Policies\AovpnFromGPO\AllUserConnection"
+      key="SOFTWARE\Policies\astang0\GwinaVPN\AllUserConnection\Target"
     >
 
       <parentCategory ref="AllUserConnection" />
@@ -696,7 +696,7 @@
       displayName="$(string.TrafficFiltersXml_Name)"
       explainText="$(string.TrafficFiltersXml_Explain)"
       presentation="$(presentation.TrafficFiltersXml)"
-      key="SOFTWARE\Policies\AovpnFromGPO\AllUserConnection"
+      key="SOFTWARE\Policies\astang0\GwinaVPN\AllUserConnection\Target"
     >
 
       <parentCategory ref="AllUserConnection" />
@@ -713,7 +713,7 @@
       displayName="$(string.ProfileName_Name)"
       explainText="$(string.ProfileName_Explain)"
       presentation="$(presentation.ProfileName)"
-      key="SOFTWARE\Policies\AovpnFromGPO\AllUserConnection"
+      key="SOFTWARE\Policies\astang0\GwinaVPN\AllUserConnection\Target"
     >
 
       <parentCategory ref="AllUserConnection"/>
