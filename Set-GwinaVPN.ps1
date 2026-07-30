@@ -140,12 +140,12 @@ function Build-ConfigfromGPO {
     else {
         # Add User Method
         $UserMethodNode = $ProfileXML.CreateElement("UserMethod")
-        $UserMethodNode.InnerText = "Eap"
+        $UserMethodNode.InnerText = "EAP"
         $AuthSettingsNode.AppendChild($UserMethodNode) | Out-Null
 
         # Add Machine Method
         $MachineMethodNode = $ProfileXML.CreateElement("MachineMethod")
-        $MachineMethodNode.InnerText = "Eap"
+        $MachineMethodNode.InnerText = "EAP"
         $AuthSettingsNode.AppendChild($MachineMethodNode) | Out-Null
 
         # Add Eap Node
@@ -153,16 +153,25 @@ function Build-ConfigfromGPO {
         $EapConfigNode = $ProfileXML.CreateElement("Configuration")
         
         # Add Eap configuration
-        foreach ($line in $TargetPropertyValues.EapConfig) {
-            $EapConfigString = $EapConfigString + $line
-        }
-        $EapConfigNode.InnerXml = $EapConfigString
-
+        # If there is no EapConfigXML in the registry, create an Eap-profile from the registry settings
+        if ($NULL -eq $TargetPropertyValues.EapConfigXml) {
             
-        $EapNode.AppendChild($EapConfigNode) | Out-Null
-        $AuthSettingsNode.AppendChild($EapNode) | Out-Null
+            $EapHostConfig = Build-EapConfigFromGPO -TargetPropertyValues $TargetPropertyValues
+            $EapHostConfigNode = $EapHostConfig.DocumentElement
+            $EapConfigInnerNodes = $ProfileXML.ImportNode($EapHostConfigNode,$true)
+            $EapconfigNode.AppendChild($EapConfigInnerNodes) | Out-Null
+        }
+        else {
+            foreach ($line in $TargetPropertyValues.EapConfigXml) {
+                $EapConfigString = $EapConfigString + $line
+            }
+            $EapConfigNode.InnerXml = $EapConfigString
 
+        }
     }
+    
+    $EapNode.AppendChild($EapConfigNode) | Out-Null
+    $AuthSettingsNode.AppendChild($EapNode) | Out-Null
     $ProfileXML.VPNProfile.NativeProfile.AppendChild($AuthSettingsNode) | Out-Null
         
     ##Adding IPsec Cryptography Settings
@@ -306,9 +315,187 @@ function Build-ConfigfromGPO {
     Return $ProfileXML
     
     
-    
 }
 
+function Build-EapConfigFromGPO {
+    
+    param (
+        [Object[]]$TargetPropertyValues
+    )
+    $EapConfig = [xml]@"
+<EapHostConfig xmlns="http://www.microsoft.com/provisioning/EapHostConfig">
+    <EapMethod>
+        <Type xmlns="http://www.microsoft.com/provisioning/EapCommon">13</Type>
+        <VendorId xmlns="http://www.microsoft.com/provisioning/EapCommon">0</VendorId>
+        <VendorType xmlns="http://www.microsoft.com/provisioning/EapCommon">0</VendorType>
+        <AuthorId xmlns="http://www.microsoft.com/provisioning/EapCommon">0</AuthorId>
+    </EapMethod>
+    <Config xmlns="http://www.microsoft.com/provisioning/EapHostConfig">
+        <Eap xmlns="http://www.microsoft.com/provisioning/BaseEapConnectionPropertiesV1">
+            <Type>13</Type>
+            <EapType xmlns="http://www.microsoft.com/provisioning/EapTlsConnectionPropertiesV1">
+            </EapType>
+        </Eap>
+    </Config>
+</EapHostConfig>
+"@
+
+    # ============= Add EAP TLS Settings ============= #
+    $EapTypeNode = $EapConfig.EapHostConfig.Config.Eap.EapType
+
+    # Create Credential Source Node for EAP configuration
+    $CredentialsSourceNode = $EapConfig.CreateElement("CredentialsSource", $EapTypeNode.NamespaceURI)
+
+    # Add Certificate Store or Smartcard Node based on EapTlsCredentialsSource setting, Default is Certificate Store
+    if($TargetPropertyValues.EapTlsCredentialsSource -notlike "Smartcard"){
+
+        $CertificateStoreNode = $EapConfig.CreateElement("CertificateStore", $CredentialsSourceNode.NamespaceURI)
+        $SimpleCertSelectionNode = $EapConfig.CreateElement("SimpleCertSelection", $CertificateStoreNode.NamespaceURI)
+        $SimpleCertSelectionNode.InnerText = "true"
+
+        $CertificateStoreNode.AppendChild($SimpleCertSelectionNode) | Out-Null
+        $CredentialsSourceNode.AppendChild($CertificateStoreNode) | Out-Null
+
+    }
+    else {
+        $SmartCardNode = $EapConfig.CreateElement("SmartCard", $CredentialsSourceNode.NamespaceURI)
+        $SmartcardNode.IsEmpty = $true
+        
+        $CredentialsSourceNode.AppendChild($SmartCardNode) | Out-Null
+    }
+    
+    $EapTypeNode.AppendChild($CredentialsSourceNode) | Out-Null
+
+    # ============= Add EAP-TLS Server Validation Settings ============= #
+    #Create ServerValidation Node for EAP configuration  
+    $EapTlsTrustedServernameValues = $TargetPropertyValues.Keys | Where-Object { ($_ -like "EapTlsTrustedServername_*") }
+    $EapTlsTrustedRootCaValues = $TargetPropertyValues.Keys | Where-Object { ($_ -like "EapTlsTrustedRootCA_*") }
+    
+    $ServerValidationNode = $EapConfig.CreateElement("ServerValidation", $EapTypeNode.NamespaceURI)
+
+    # Add DisablePromptForServerValidation Node, default is false
+    $DisablePromptNode = $EapConfig.CreateElement("DisableUserPromptForServerValidation", $ServerValidationNode.NamespaceURI)
+    if ($NULL -eq $TargetPropertyValues.EapTlsDisableNewServerPrompt) {
+        $DisablePromptNode.InnerText = "false"
+    }
+    else {
+        $DisablePromptNode.InnerText = $TargetPropertyValues.EapTlsDisableNewServerPrompt
+    }
+    
+    $ServerValidationNode.AppendChild($DisablePromptNode) | Out-Null
+
+    # Add Trusted Server names node
+    $ServernameNode = $EapConfig.CreateElement("ServerNames", $ServerValidationNode.NamespaceURI)
+    foreach ($servername in $EapTlsTrustedServernameValues) {
+        $servernamevalue = ($TargetPropertyValues.$servername).trim()
+        $ServernameList += "$servernamevalue,"
+    }
+    if ($ServernameList) {
+        $ServernameNode.InnerText = $ServernameList.TrimEnd(',')
+    }
+    $ServerValidationNode.AppendChild($ServernameNode) | Out-Null
+    
+    # Add Trusted Root CA node
+    foreach ($entry in $EapTlsTrustedRootCaValues) {
+        # Get trusted Certificate Authority thumbprint from registry and format it for EAP configuration
+        $RootCAValue = ($TargetPropertyValues.$entry).trim()
+        $RootCAValue = (($RootCAValue -replace '..(?!$)','$0 ').ToLower())+" "
+
+        # Create Trusted Root CA node and add it to ServerValidation node
+        $TrustedRootCANode = $EapConfig.CreateElement("TrustedRootCA", $ServerValidationNode.NamespaceURI)
+        $TrustedRootCANode.InnerText = $RootCAValue
+        $ServerValidationNode.AppendChild($TrustedRootCANode) | Out-Null
+    }
+
+    $EapTypeNode.AppendChild($ServerValidationNode) | Out-Null
+
+    # Add DifferenUsername node 
+    $DifferentUsernameNode = $EapConfig.CreateElement("DifferentUsername", $EapTypeNode.NamespaceURI)
+    $DifferentUsernameNode.InnerText = "false"
+    $EapTypeNode.AppendChild($DifferentUsernameNode) | Out-Null
+
+    # Add PerformServerValidation node
+    $PerformServerValidationNode = $EapConfig.CreateElement("PerformServerValidation")
+    $PerformServerValidationNode.SetAttribute("xmlns", "http://www.microsoft.com/provisioning/EapTlsConnectionPropertiesV2")
+    
+    if($EapTlsTrustedServernameValues -or $EapTlsTrustedRootCaValues -or ($TargetPropertyValues.EapTlsDisableNewServerPrompt -like "true")){
+        $PerformServerValidationNode.InnerText = "true"
+    }
+    else{
+        $PerformServerValidationNode.InnerText = "false"
+    }
+    $EapTypeNode.AppendChild($PerformServerValidationNode) | Out-Null
+
+    # Add AcceptServerName node
+    $AcceptServerNameNode = $EapConfig.CreateElement("AcceptServerName")
+    $AcceptServerNameNode.SetAttribute("xmlns", "http://www.microsoft.com/provisioning/EapTlsConnectionPropertiesV2")
+    if($EapTlsTrustedServernameValues){
+        $AcceptServerNameNode.InnerText = "true"
+    }
+    else{
+        $AcceptServerNameNode.InnerText = "false"
+    }
+    $EapTypeNode.AppendChild($AcceptServerNameNode) | Out-Null
+
+    # ============= Add EAP-TLS Client Certificate Filtering Settings ============= #
+    
+    $TlsExtensionsNode = $EapConfig.CreateElement("TLSExtensions", "http://www.microsoft.com/provisioning/EapTlsConnectionPropertiesV2")
+    $FilteringInfoNode = $EapConfig.CreateElement("FilteringInfo", "http://www.microsoft.com/provisioning/EapTlsConnectionPropertiesV3")
+    
+    # Add Setting to allow all-purpose certificates to be used for EAP-TLS authentication
+    if ($TargetPropertyValues.EapTlsAllowAllPurposeEKU -eq 1) {
+        $AllPurposeEnabledNode = $EapConfig.CreateElement("AllPurposeEnabled", $FilteringInfoNode.NamespaceURI)
+        $AllPurposeEnabledNode.InnerText = "true"
+        $FilteringInfoNode.AppendChild($AllPurposeEnabledNode) | Out-Null
+    }
+
+    # Add allowed Issuer Hashes to TlsExtensions node
+    $EapTlsIssuerHashValues = $TargetPropertyValues.Keys | Where-Object { ($_ -like "EapTlsIssuerHash_*") }
+    $CAHashListNode = $EapConfig.CreateElement("CAHashList", $FilteringInfoNode.NamespaceURI)
+
+    if ($EapTlsIssuerHashValues) {
+        $CAHashListNode.SetAttribute("Enabled", "true")
+        foreach ($entry in $EapTlsIssuerHashValues) {
+            # Get Issuer Hash from registry and format it for EAP configuration
+            $IssuerHashValue = ($TargetPropertyValues.$entry).trim()
+            $IssuerHashValue = (($IssuerHashValue -replace '..(?!$)','$0 ').ToLower())+" "
+
+            # Create Issuer Hash node and add it to TlsExtensions node
+            $IssuerHashNode = $EapConfig.CreateElement("IssuerHash", $CAHashListNode.NamespaceURI)
+            $IssuerHashNode.InnerText = $IssuerHashValue
+            $CAHashListNode.AppendChild($IssuerHashNode) | Out-Null
+        }
+        $FilteringInfoNode.AppendChild($CAHashListNode) | Out-Null
+    }
+
+    
+    if($TargetPropertyValues.EapTlsAllowClientAuthenticationEKU -eq 1){
+        $ClientAuthEKUNode = $EapConfig.CreateElement("ClientAuthEKUList", $FilteringInfoNode.NamespaceURI)
+        $ClientAuthEKUNode.IsEmpty = $True
+        $ClientAuthEKUNode.SetAttribute("Enabled", "true")
+        $FilteringInfoNode.AppendChild($ClientAuthEKUNode) | Out-Null
+    }
+
+
+
+    if($TargetPropertyValues.EapTlsAllowAnyPurposeEKU -eq 1){
+        $AnyPurposeEKUNode = $EapConfig.CreateElement("AnyPurposeEKUList", $FilteringInfoNode.NamespaceURI)
+        $AnyPurposeEKUNode.IsEmpty = $True
+        $AnyPurposeEKUNode.SetAttribute("Enabled", "true")
+        $FilteringInfoNode.AppendChild($AnyPurposeEKUNode) | Out-Null
+    }
+
+    
+    # If there were any filtering settings configured, add the child nodes to the EAP configuration
+    if ($FilteringInfoNode.HasChildNodes) {
+        $TlsExtensionsNode.AppendChild($FilteringInfoNode) | Out-Null
+        $EapTypeNode.AppendChild($TlsExtensionsNode) | Out-Null
+    }
+
+    Return $EapConfig
+
+
+}
 
 function Test-GwinaVpnConfiguration {
     <#
@@ -337,7 +524,7 @@ function Test-GwinaVpnConfiguration {
             "PfsGroup")
     }
     else {
-        $mandatorysettings = $mandatorysettings + @("EapConfig")
+        #$mandatorysettings = $mandatorysettings + @("EapConfig")
     }
 
     #Check if mandatory settings have been configured
@@ -693,22 +880,38 @@ function Remove-GwinaVpnConnection {
         $TargetPath = $RegistryPath + "\Target"
         $CurrentPath = $RegistryPath + "\Current"
 
-        $ConnectionTypeSettingsTarget = $RegistrySettings | where PSPath -like $TargetPath
-        $ConnectionTypeSettingsCurrent = $RegistrySettings | where PSPath -like $CurrentPath
+        # Select all settings in respective registry keys and store them in variables
+        $ConnectionTypeSettingsTarget = $RegistrySettings | where {($_.PSPath -like $TargetPath) -or ($_.PSPath -like $TargetPath + "*")}
+        $ConnectionTypeSettingsCurrent = $RegistrySettings | where {($_.PSPath -like $CurrentPath) -or ($_.PSPath -like $CurrentPath + "*")}
 
-        $TargetRegPropertyNames =  $ConnectionTypeSettingsTarget | Select-Object -ExpandProperty Property -ErrorAction SilentlyContinue | Sort-Object
-        $CurrentRegPropertyNames = $ConnectionTypeSettingsCurrent | Select-Object -ExpandProperty Property -ErrorAction SilentlyContinue | Sort-Object
-
-        $TargetPropertyValues = $ConnectionTypeSettingsTarget | Get-ItemProperty -ErrorAction SilentlyContinue
-        $CurrentPropertyValues = $ConnectionTypeSettingsCurrent | Get-ItemProperty -ErrorAction SilentlyContinue
-
-        if($TargetPropertyValues.ProfileName){ 
-            $TargetProfileName = $TargetPropertyValues.ProfileName
-            $TargetProfileNameEscaped = $TargetProfileName.Replace(" ", "%20")
+        # Select all property values in respective registry keys and store them in variables
+        foreach ($key in $ConnectionTypeSettingsTarget){
+            $properties = Get-ItemProperty -Path $key.PSPath -ErrorAction SilentlyContinue 
+            $propertynames = $Key | select -ExpandProperty Property -ErrorAction SilentlyContinue 
+            foreach($propertyname in $propertynames){
+                $TargetPropertyValues += @{$propertyname = $properties.$propertyname}
+            }
+        }
+        
+        foreach ($key in $ConnectionTypeSettingsCurrent){
+            $properties = Get-ItemProperty -Path $key.PSPath -ErrorAction SilentlyContinue 
+            $propertynames = $Key | select -ExpandProperty Property -ErrorAction SilentlyContinue 
+            foreach($propertyname in $propertynames){
+                $CurrentPropertyValues += @{$propertyname = $properties.$propertyname}
+            }
         }
 
-        if($CurrentPropertyValues.ProfileName){ 
-            $CurrentProfileName = $CurrentPropertyValues.ProfileName
+        # Select all property names in respective registry keys and store them in variables
+        $TargetRegPropertyNames =  $TargetPropertyValues.Keys | Sort-Object
+        $CurrentRegPropertyNames = $CurrentPropertyValues.Keys | Sort-Object
+
+        # Extract ProfileName from Target and Current configuration and escape spaces for use in InstanceID
+        if($TargetpropertyValues.Profilename){ 
+            $TargetprofileName = $TargetpropertyValues.Profilename
+            $TargetProfileNameEscaped = $TargetProfileName.Replace(" ", "%20")
+        }
+        if($CurrentPropertyValues.Profilename){ 
+            $CurrentProfileName = $CurrentPropertyValues.Profilename
             $CurrentProfileNameEscaped = $CurrentProfileName.Replace(" ", "%20")
         }
         
@@ -750,13 +953,8 @@ function Remove-GwinaVpnConnection {
         Write-Log -Message "Running check for mandatory Settings..." -Level 'Info' 
         Test-GwinaVpnConfiguration -TargetPropertyValues $TargetPropertyValues -DeviceTunnel $IsDevicetunnel
         
-        ## If it does not exist, create 'Current' Reg-Key 
-        if (!$ConnectionTypeSettingsCurrent) {
-            New-Item -Path ($RegistryPath+"\Current") -Force | Out-Null
-            
-        }
-        #If it does exist, check if there is already a VPN-Profile with the same name as the new one
-        else {
+        ## If there is a "current" sub key, compare with target subkey
+        if ($ConnectionTypeSettingsCurrent) {
             #If there is connection with same connection type, run configuration comparison
             if ($null -ne $CurrentConnection) {
                 $ConfigurationDifferencesExist = Compare-GwinaVpnConfiguration -TargetPropertyValues $TargetPropertyValues -CurrentPropertyValues $CurrentPropertyValues -TargetRegPropertyNames $TargetRegPropertyNames -CurrentRegPropertyNames $CurrentRegPropertyNames
@@ -805,19 +1003,16 @@ function Remove-GwinaVpnConnection {
         }
 
         #Remove properties from 'Current' key 
-        foreach ($property in $CurrentRegPropertyNames) {
-            Remove-ItemProperty -Path $CurrentPath -Name $Property
-        }
-        
+        Remove-Item -Path $CurrentPath -Recurse -Force -ErrorAction SilentlyContinue  
+
         #Then copy values from 'target' to 'current'
-        foreach ($Property in $TargetRegPropertyNames) {
-            Copy-ItemProperty -Path $TargetPath -Destination $CurrentPath -Name $Property
-        }
+        Copy-Item -Path $TargetPath -Destination $CurrentPath -Recurse -Force
     }
     catch {
         Write-Log -Message "Error in $ConnectionTypeDisplayName processing: $($_.Exception.Message)" -Level 'Error' 
     }
     finally{
+        Clear-Variable -Name TargetPropertyValues, CurrentPropertyValues, TargetRegPropertyNames, CurrentRegPropertyNames, ConfigurationDifferencesExist, ProfileXML, ProfileFormatted, CurrentConnection, TargetProfileName, CurrentProfileName -ErrorAction SilentlyContinue
         Write-Log -Message "Finished processing $ConnectionTypeDisplayName connection." -Level 'Info' 
 
         #Trim log file to max length

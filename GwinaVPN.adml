@@ -76,10 +76,10 @@ Default: Device Tunnel status is not shown in UI.
       <string id="Servers_Name">[Mandatory] VPN Server</string>
       <string id="Servers_Explain">FQDN of the VPN server the devices should connect to.</string>
 
-      <string id="EapConfig_Name">[Mandatory] EAP Configuration XML</string>
-      <string id="EapConfig_Explain">Enter the EAP Configuration XML for this connection.
+      <string id="EapConfigXml_Name">Set custom EAP Configuration XML</string>
+      <string id="EapConfigXml_Explain">To unlock all EAP configuration options that are available in the Security tab of a Windows VPN connection network adapter, you can enter the raw EAP Configuration XML for this connection here.
 
-To create this configuration, manually create a VPN connection on a test device and configure the EAP settings to your needs.
+To create this EAP configuration, manually create a VPN connection on a test device and configure the EAP settings to your needs.
 Once you got the EAP configuration ready, open a Powershell to extract the EAP configuration XML.
 
 Enter the following commands:
@@ -94,13 +94,13 @@ Add some linebreaks inbetween XML elements so that the configuration fits the te
       <string id="IKEv2Settings_Name">[Mandatory] IKEv2/IPsec settings</string>
       <string id="IKEv2Settings_Explain">Specify the custom cryptography settings for the IKEv2 connection.
       
-Recommendations: 
+Minimum Recommendations (requires ECC certificates on the server and client): 
 Phase 1 Authentication: SHA256
 Phase 1 Encryption: AES_GCM_128
 Phase 2 Authentication: SHA256128
 Phase 2 Encryption: AES128
 PFS Group: ECP256
-DH Group: Group14
+DH Group: ECP256
       </string>
 
       <string id="Routes_Name">[Mandatory] Routes</string>
@@ -182,15 +182,53 @@ Choose carefully! This name cannot be changed after the connection has been depl
       <string id="dropdown_AES_GCM_128">AES_GCM_128</string>
       <string id="dropdown_AES_GCM_256">AES_GCM_256</string>
 
+      <string id="AllowedServerNames_Name">Allowed Authentication Server Names</string>
+      <string id="AllowedServerNames_Explain">Specify a list of server names or suffix patterns that the client is allowed to connect to for authentication purposes.
+If this list is empty, no server name restriction is applied.
+</string>
+
+      <string id="TrustedServerRootCAThumbprints_Name">Trusted Server Root CA Thumbprints</string>
+      <string id="TrustedServerRootCAThumbprints_Explain">Specify a list of SHA-1 thumbprints of trusted root certification authorities (CAs) that are acceptable issuers of the server certificate.
+If this list is empty, all root CAs already trusted by the device are accepted.
+</string> 
+
+        <string id="DisableNewServerPrompt_Name">Disable New Server Prompt</string>
+        <string id="DisableNewServerPrompt_Explain">Do not prompt the user to authorize new servers or trusted certification authorities.</string>
+
+        <string id="Authentication_Name">Authentication Settings</string>
+        <string id="Authentication_Explain">Configure the authentication settings for the VPN connection.</string>
       
+      <string id="EapTlsCredentialsSource_Name">EAP-TLS Credential Source</string>
+      <string id="EapTlsCredentialsSource_Explain">Specify the credential source to use for EAP-TLS authentication. Either a certificate from the local certificate store or a smart card can be used. If a smart card is used, the user must have a smart card reader and a smart card with a valid certificate for authentication.</string>
+      <string id="dropdown_CertificateStore">Certificate from Local Store</string>
+      <string id="dropdown_SmartCard">Certificate from Smart Card</string>
+
+      <string id="EapTlsAllowedBaseEKUs_Name">Allowed Client Certificate EKUs</string>
+      <string id="EapTlsAllowedBaseEKUs_Explain">Specify the EKUs that are allowed for client authentication.
+      
+Client Authentication EKU:
+Certificates with the Client Authentication EKU (OID 1.3.6.1.5.5.7.3.2) are allowed for client authentication.
+
+Any Purpose EKU:
+Certificates with the Any Purpose EKU (OID 1.3.6.1.4.1.311.10.12.1) are allowed for client authentication.
+
+All-Purpose EKU:
+All-Purpose certificates (EKU-field = 0) are allowed for client authentication.
+      </string>
+
+      <string id="EapTlsIssuerHash_Name">Allowed Client Certificate Issuer Hashes</string>
+      <string id="EapTlsIssuerHash_Explain">Specify a list of SHA-1 thumbprints of trusted root certification authorities (CAs) that are acceptable issuers of the client certificate for EAP-TLS authentication.
+If this list is empty, all root CAs already trusted by the device are accepted.
+</string>
+    
     </stringTable>
 
 
 
     <presentationTable>
 
-      <presentation id="EapConfig">
-        <multiTextBox refId="EapConfigTextBox">
+      <presentation id="EapConfigXml">
+        <multiTextBox refId="EapConfigXmlTextBox">
           EAP Configuration:
         </multiTextBox>
       </presentation>
@@ -260,6 +298,38 @@ Choose carefully! This name cannot be changed after the connection has been depl
         <textBox refId="ProfileName">
           <label>Profile Name:</label>
         </textBox>
+      </presentation>
+
+      <presentation id="DisableNewServerPrompt">
+      </presentation>
+
+
+      <presentation id="AllowedServerNames">
+        <text>Allowed server names (one pattern per line, e.g. *.contoso.com):</text>
+        <listBox refId="AllowedServerNames">Allowed server names</listBox>
+      </presentation>
+
+      <presentation id="TrustedServerRootCAThumbprints">
+        <text>Trusted Root Certification Authorities (one SHA-1 thumbprint per line):</text>
+        <listBox refId="TrustedServerRootCAThumbprints">Trusted Root CA thumbprints</listBox>
+      </presentation>
+
+      <presentation id="EapTlsCredentialsSource">
+        <dropdownList refId="EapTlsCredentialsSource_DropDown" noSort="true">Credential Source:</dropdownList>
+      </presentation>
+
+      <presentation id="EapTlsAllowAllPurposeCerts">
+      </presentation>
+
+      <presentation id="EapTlsIssuerHash">
+        <text>EAP-TLS Issuer Hashes (one hash per line):</text>
+        <listBox refId="EapTlsIssuerHash">EAP-TLS Issuer Hashes</listBox>
+      </presentation>
+
+      <presentation id="EapTlsAllowedBaseEKUs">
+        <checkBox refId="EapTlsAllowClientAuthenticationEKU" defaultChecked="true">Include Client Authentication EKU</checkBox>
+        <checkBox refId="EapTlsAllowAnyPurposeEKU" defaultChecked="false">Include Any Purpose EKU</checkBox>
+        <checkBox refId="EapTlsAllowAllPurposeEKU" defaultChecked="false">Include All-Purpose EKU</checkBox>
       </presentation>
 
     </presentationTable>

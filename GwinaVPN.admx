@@ -46,6 +46,16 @@
     explainText="$(string.AllUserConnection_Explain)">
       <parentCategory ref="GwinaVPN" />
     </category>
+    <category name="AuthenticationDT" 
+    displayName="$(string.Authentication_Name)" 
+    explainText="$(string.Authentication_Explain)">
+      <parentCategory ref="DeviceTunnel" />
+    </category>
+    <category name="AuthenticationAUC" 
+    displayName="$(string.Authentication_Name)"
+    explainText="$(string.Authentication_Explain)">
+      <parentCategory ref="AllUserConnection" />
+    </category>
   </categories>
 
 
@@ -495,23 +505,24 @@
       </elements>
     </policy>
 
+
     <!-- ######################  START ALL USER CONNECTION POLICIES  ######################  -->
 
   
     <!-- Set Eap Config AUC-->
     <policy
-      name="EapConfigAUC"
+      name="EapConfigXmlAUC"
       class="Machine"
-      displayName="$(string.EapConfig_Name)"
-      explainText="$(string.EapConfig_Explain)"
-      presentation="$(presentation.EapConfig)"
-      key="SOFTWARE\Policies\astang0\GwinaVPN\AllUserConnection\Target"
+      displayName="$(string.EapConfigXml_Name)"
+      explainText="$(string.EapConfigXml_Explain)"
+      presentation="$(presentation.EapConfigXml)"
+      key="SOFTWARE\Policies\astang0\GwinaVPN\AllUserConnection\Target\Authentication"
     >
 
-      <parentCategory ref="AllUserConnection" />
+      <parentCategory ref="AuthenticationAUC" />
       <supportedOn ref="windows:SUPPORTED_Windows_10_0_NOSERVER_ENTERPRISE_EDUCATION" />
       <elements>
-        <multiText id="EapConfigTextBox" valueName="EapConfig" required="true" />
+        <multiText id="EapConfigXmlTextBox" valueName="EapConfigXml" required="true" />
       </elements>
     </policy>
 
@@ -721,6 +732,114 @@
       <elements>
         <text id="ProfileName" valueName="ProfileName" required="true" />
       </elements>
+    </policy>
+
+    <!-- ==================== EAP TLS Settings ==================== -->
+    <policy
+      name="EapTlsCredentialsSourceAUC"
+      class="Machine"
+      displayName="$(string.EapTlsCredentialsSource_Name)"
+      explainText="$(string.EapTlsCredentialsSource_Explain)"
+      presentation="$(presentation.EapTlsCredentialsSource)"
+      key="SOFTWARE\Policies\astang0\GwinaVPN\AllUserConnection\Target\Authentication"
+    >
+      <parentCategory ref="AuthenticationAUC" />
+      <supportedOn ref="windows:SUPPORTED_Windows_10_0_NOSERVER_ENTERPRISE_EDUCATION" />
+      <elements>
+        <enum id="EapTlsCredentialsSource_DropDown" valueName="EapTlsCredentialsSource" required="true">
+          <item displayName="$(string.dropdown_CertificateStore)">
+            <value>
+              <string>CertificateStore</string>
+            </value>
+          </item>
+          <item displayName="$(string.dropdown_SmartCard)">
+            <value>
+              <string>SmartCard</string>
+            </value>
+          </item>
+        </enum>
+      </elements>
+    </policy>
+
+    <!-- ==================== Server Validation ==================== -->
+    <policy name="DisableNewServerPromptAUC"
+            class="Machine"
+            displayName="$(string.DisableNewServerPrompt_Name)"
+            explainText="$(string.DisableNewServerPrompt_Explain)"
+            key="SOFTWARE\Policies\astang0\GwinaVPN\AllUserConnection\Target\Authentication"
+            presentation="$(presentation.DisableNewServerPrompt)"
+            valueName="EapTlsDisableNewServerPrompt">
+      <parentCategory ref="AuthenticationAUC" />
+      <supportedOn ref="windows:SUPPORTED_Windows_10_0_NOSERVER_ENTERPRISE_EDUCATION" />
+      <enabledValue>
+        <string>true</string>
+      </enabledValue>
+      <disabledValue>
+        <string>false</string>
+      </disabledValue>
+    </policy>
+
+    <policy name="AllowedServerNamesAUC"
+            class="Machine"
+            displayName="$(string.AllowedServerNames_Name)"
+            explainText="$(string.AllowedServerNames_Explain)"
+            presentation="$(presentation.AllowedServerNames)"
+            key="SOFTWARE\Policies\astang0\GwinaVPN\AllUserConnection\Target\Authentication\EapTlsTrustedServerNames">
+      <parentCategory ref="AuthenticationAUC" />
+      <supportedOn ref="windows:SUPPORTED_Windows_10_0_NOSERVER_ENTERPRISE_EDUCATION" />
+      <elements>
+        <list id="AllowedServerNames"
+              valuePrefix="EapTlsTrustedServerName_"
+              explicitValue="false" />
+      </elements>
+    </policy>
+
+    <policy name="TrustedServerRootCAThumbprintsAUC"
+            class="Machine"
+            displayName="$(string.TrustedServerRootCAThumbprints_Name)"
+            explainText="$(string.TrustedServerRootCAThumbprints_Explain)"
+            presentation="$(presentation.TrustedServerRootCAThumbprints)"
+            key="SOFTWARE\Policies\astang0\GwinaVPN\AllUserConnection\Target\Authentication\EapTlsTrustedRootCAs">
+      <parentCategory ref="AuthenticationAUC" />
+      <supportedOn ref="windows:SUPPORTED_Windows_10_0_NOSERVER_ENTERPRISE_EDUCATION" />
+      <elements>
+        <list id="TrustedServerRootCAThumbprints"
+              valuePrefix="EapTlsTrustedRootCA_"
+              explicitValue="false" />
+      </elements>
+    </policy>
+
+    <!-- ==============Client Authentication Settings====================-->
+    <policy name="EapTlsIssuerHashAUC"
+            class="Machine"
+            displayName="$(string.EapTlsIssuerHash_Name)"
+            explainText="$(string.EapTlsIssuerHash_Explain)"
+            presentation="$(presentation.EapTlsIssuerHash)"
+            key="SOFTWARE\Policies\astang0\GwinaVPN\AllUserConnection\Target\Authentication\EapTlsIssuerHashes">
+      <parentCategory ref="AuthenticationAUC" />
+      <supportedOn ref="windows:SUPPORTED_Windows_10_0_NOSERVER_ENTERPRISE_EDUCATION" />
+      <elements>
+        <list id="EapTlsIssuerHash"
+              valuePrefix="EapTlsIssuerHash_"
+              explicitValue="false" />
+      </elements>
+    </policy>
+
+    <policy name="EapTlsAllowedBaseEKUsAUC"
+            class="Machine"
+            displayName="$(string.EapTlsAllowedBaseEKUs_Name)"
+            explainText="$(string.EapTlsAllowedBaseEKUs_Explain)"
+            key="SOFTWARE\Policies\astang0\GwinaVPN\AllUserConnection\Target\Authentication"
+            presentation="$(presentation.EapTlsAllowedBaseEKUs)"
+            >
+      <parentCategory ref="AuthenticationAUC" />
+      <supportedOn ref="windows:SUPPORTED_Windows_10_0_NOSERVER_ENTERPRISE_EDUCATION" />
+      <elements>
+        <boolean id="EapTlsAllowAllPurposeEKU" valueName="EapTlsAllowAllPurposeEKU" required="false"/>
+        <boolean id="EapTlsAllowClientAuthenticationEKU" valueName="EapTlsAllowClientAuthenticationEKU" required="false"/>
+        <boolean id="EapTlsAllowAnyPurposeEKU" valueName="EapTlsAllowAnyPurposeEKU" required="false"/>
+      </elements>
+      
     </policy>
 
 
