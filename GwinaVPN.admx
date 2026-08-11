@@ -438,21 +438,21 @@
 
 
     <!--  List of Routes  DT-->
-    <policy
-      name="RoutesDT"
-      class="Machine"
-      displayName="$(string.Routes_Name)"
-      explainText="$(string.Routes_Explain)"
-      presentation="$(presentation.Routes)"
-      key="SOFTWARE\Policies\astang0\GwinaVPN\Devicetunnel\Target"
+   <policy name="RoutesDT"
+            class="Machine"
+            displayName="$(string.Routes_Name)"
+            explainText="$(string.Routes_Explain)"
+            presentation="$(presentation.Routes)"
+            key="SOFTWARE\Policies\astang0\GwinaVPN\Devicetunnel\Target\Routes"
     >
-
       <parentCategory ref="DeviceTunnel" />
       <supportedOn ref="windows:SUPPORTED_Windows_10_0_NOSERVER_ENTERPRISE_EDUCATION" />
       <elements>
-        <multiText id="Routes" valueName="Routes" required="true" />
+        <list id="Routes"
+              explicitValue="true" />
       </elements>
     </policy>
+
 
     <!--  List of DomainNameInformation DT-->
     <policy
@@ -667,19 +667,19 @@
 
 
     <!--  List of Routes  AUC-->
-    <policy
-      name="RoutesAUC"
-      class="Machine"
-      displayName="$(string.Routes_Name)"
-      explainText="$(string.Routes_Explain)"
-      presentation="$(presentation.Routes)"
-      key="SOFTWARE\Policies\astang0\GwinaVPN\AllUserConnection\Target"
-    >
 
+    <policy name="RoutesAUC"
+            class="Machine"
+            displayName="$(string.Routes_Name)"
+            explainText="$(string.Routes_Explain)"
+            presentation="$(presentation.Routes)"
+            key="SOFTWARE\Policies\astang0\GwinaVPN\AllUserConnection\Target\Routes"
+    >
       <parentCategory ref="AllUserConnection" />
       <supportedOn ref="windows:SUPPORTED_Windows_10_0_NOSERVER_ENTERPRISE_EDUCATION" />
       <elements>
-        <multiText id="Routes" valueName="Routes" required="true" />
+        <list id="Routes"
+              explicitValue="true" />
       </elements>
     </policy>
 

@@ -182,28 +182,28 @@ Choose carefully! This name cannot be changed after the connection has been depl
       <string id="dropdown_AES_GCM_128">AES_GCM_128</string>
       <string id="dropdown_AES_GCM_256">AES_GCM_256</string>
 
-      <string id="AllowedServerNames_Name">Allowed Authentication Server Names</string>
+      <string id="AllowedServerNames_Name">Server Validation: Allowed Authentication Server Names</string>
       <string id="AllowedServerNames_Explain">Specify a list of server names or suffix patterns that the client is allowed to connect to for authentication purposes.
 If this list is empty, no server name restriction is applied.
 </string>
 
-      <string id="TrustedServerRootCAThumbprints_Name">Trusted Server Root CA Thumbprints</string>
+      <string id="TrustedServerRootCAThumbprints_Name">Server Validation: Trusted Server Root CA Thumbprints</string>
       <string id="TrustedServerRootCAThumbprints_Explain">Specify a list of SHA-1 thumbprints of trusted root certification authorities (CAs) that are acceptable issuers of the server certificate.
 If this list is empty, all root CAs already trusted by the device are accepted.
 </string> 
 
-        <string id="DisableNewServerPrompt_Name">Disable New Server Prompt</string>
+        <string id="DisableNewServerPrompt_Name">Server Validation: Disable New Server Prompt</string>
         <string id="DisableNewServerPrompt_Explain">Do not prompt the user to authorize new servers or trusted certification authorities.</string>
 
         <string id="Authentication_Name">Authentication Settings</string>
         <string id="Authentication_Explain">Configure the authentication settings for the VPN connection.</string>
       
-      <string id="EapTlsCredentialsSource_Name">EAP-TLS Credential Source</string>
+      <string id="EapTlsCredentialsSource_Name">Client Authentication: EAP-TLS Credential Source</string>
       <string id="EapTlsCredentialsSource_Explain">Specify the credential source to use for EAP-TLS authentication. Either a certificate from the local certificate store or a smart card can be used. If a smart card is used, the user must have a smart card reader and a smart card with a valid certificate for authentication.</string>
       <string id="dropdown_CertificateStore">Certificate from Local Store</string>
       <string id="dropdown_SmartCard">Certificate from Smart Card</string>
 
-      <string id="EapTlsAllowedBaseEKUs_Name">Allowed Client Certificate EKUs</string>
+      <string id="EapTlsAllowedBaseEKUs_Name">Client Authentication: Allowed Client Certificate EKUs</string>
       <string id="EapTlsAllowedBaseEKUs_Explain">Specify the EKUs that are allowed for client authentication.
       
 Client Authentication EKU:
@@ -216,7 +216,7 @@ All-Purpose EKU:
 All-Purpose certificates (EKU-field = 0) are allowed for client authentication.
       </string>
 
-      <string id="EapTlsIssuerHash_Name">Allowed Client Certificate Issuer Hashes</string>
+      <string id="EapTlsIssuerHash_Name">Client Authentication: Allowed Client Certificate Issuer Hashes</string>
       <string id="EapTlsIssuerHash_Explain">Specify a list of SHA-1 thumbprints of trusted root certification authorities (CAs) that are acceptable issuers of the client certificate for EAP-TLS authentication.
 If this list is empty, all root CAs already trusted by the device are accepted.
 </string>
@@ -275,11 +275,9 @@ If this list is empty, all root CAs already trusted by the device are accepted.
         <dropdownList refId="DHGroup_DropDown" noSort="true">Diffie-Hellmann Group:</dropdownList>
       </presentation>
 
-
       <presentation id="Routes">
-        <multiTextBox refId="Routes">
-          Routes:
-        </multiTextBox>
+        <text>Enter Routes here:</text>
+        <listBox refId="Routes">Routes:</listBox>
       </presentation>
 
       <presentation id="Dni">

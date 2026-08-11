@@ -68,8 +68,8 @@ function Build-ConfigfromGPO {
     .DESCRIPTION
     This function creates a VPN profile XML structure based on values stored in the registry.
 
-    .PARAMETER TargetPropertyValues
-    An array of property values from the registry.
+    .PARAMETER TargetSettings
+    A PSCustomObject containing property values from the registry.
 
     .PARAMETER DeviceTunnel
     A boolean indicating whether the tunnel is a device tunnel.
@@ -77,8 +77,8 @@ function Build-ConfigfromGPO {
 
     [CmdletBinding()]
     param (
-        [Object[]]$TargetPropertyValues,
-        [bool]$DeviceTunnel
+        [hashtable]$TargetSettings,
+        [bool]$IsDeviceTunnel
     )
 
     ##Create XML-Document with Profile Base Structure
@@ -102,21 +102,21 @@ function Build-ConfigfromGPO {
     # Set Settings in VPN-Profile-Node
     $VPNProfileNode = @("DNSSuffix", "DisableDisconnectbutton", "DisableAdvancedOptionsEditButton", "RegisterDNS")
     foreach ($Setting in $VPNProfileNode) {
-        if ($NULL -ne $TargetPropertyValues.$Setting) {
-            $ProfileXML.VPNProfile.$Setting = $TargetPropertyValues.$Setting
+        if ($NULL -ne $TargetSettings.$Setting) {
+            $ProfileXML.VPNProfile.$Setting = $TargetSettings.$Setting
         }
     }
 
     # Set Settings in NativeProfile-Node
     $NativeProfileNode = @("DisableClassBasedDefaultRoute")
     foreach ($Setting in $NativeProfileNode) {
-        if ($NULL -ne $TargetPropertyValues.$Setting) {
-            $ProfileXML.VPNProfile.NativeProfile.$Setting = $TargetPropertyValues.$Setting
+        if ($NULL -ne $TargetSettings.$Setting) {
+            $ProfileXML.VPNProfile.NativeProfile.$Setting = $TargetSettings.$Setting
         }
     }
 
     # Set Protocol type
-    if ($DeviceTunnel) {
+    if ($IsDeviceTunnel) {
         $ProfileXML.VPNProfile.NativeProfile.NativeProtocolType = "IKEv2"
     }
     else {
@@ -125,14 +125,14 @@ function Build-ConfigfromGPO {
         
 
     # Remove Devicetunnel flag if necessary
-    if (!$DeviceTunnel) {
+    if (!$IsDeviceTunnel) {
         $DTnode = $ProfileXML.VPNProfile.SelectSingleNode("DeviceTunnel")
         $ProfileXML.VPNProfile.RemoveChild($DTnode) | out-null
     }
 
     # Adding Authentication Settings
     $AuthSettingsNode = $ProfileXML.CreateElement("Authentication")
-    if ($DeviceTunnel) {
+    if ($IsDeviceTunnel) {
         $MachineMethodNode = $ProfileXML.CreateElement("MachineMethod")
         $MachineMethodNode.InnerText = "Certificate"
         $AuthSettingsNode.AppendChild($MachineMethodNode) | Out-Null
@@ -154,38 +154,40 @@ function Build-ConfigfromGPO {
         
         # Add Eap configuration
         # If there is no EapConfigXML in the registry, create an Eap-profile from the registry settings
-        if ($NULL -eq $TargetPropertyValues.EapConfigXml) {
+        if ($NULL -eq $TargetSettings.Authentication.EapConfigXml) {
             
-            $EapHostConfig = Build-EapConfigFromGPO -TargetPropertyValues $TargetPropertyValues
+            $EapHostConfig = Build-EapConfigFromGPO -TargetSettings $TargetSettings
             $EapHostConfigNode = $EapHostConfig.DocumentElement
             $EapConfigInnerNodes = $ProfileXML.ImportNode($EapHostConfigNode,$true)
             $EapconfigNode.AppendChild($EapConfigInnerNodes) | Out-Null
         }
         else {
-            foreach ($line in $TargetPropertyValues.EapConfigXml) {
+            foreach ($line in $TargetSettings.Authentication.EapConfigXml) {
                 $EapConfigString = $EapConfigString + $line
             }
             $EapConfigNode.InnerXml = $EapConfigString
 
         }
+
+        $EapNode.AppendChild($EapConfigNode) | Out-Null
+        $AuthSettingsNode.AppendChild($EapNode) | Out-Null
     }
     
-    $EapNode.AppendChild($EapConfigNode) | Out-Null
-    $AuthSettingsNode.AppendChild($EapNode) | Out-Null
+    
     $ProfileXML.VPNProfile.NativeProfile.AppendChild($AuthSettingsNode) | Out-Null
         
     ##Adding IPsec Cryptography Settings
-    if ($DeviceTunnel) {
+    if ($IsDeviceTunnel) {
         $cryptographysettings = @("AuthenticationTransformConstants", "CipherTransformConstants", "EncryptionMethod", "PfsGroup", "DHGroup",
             "IntegrityCheckMethod")
         #Create New Cryptography-Node
         $CryptoSuiteNode = $ProfileXML.CreateElement("CryptographySuite")
         foreach ($Setting in $cryptographysettings) {
-            if ($NULL -ne $TargetPropertyValues.$Setting) {
+            if ($NULL -ne $TargetSettings.$Setting) {
             
                 # Add Cryptography-Setting
                 $addcryptosetting = $ProfileXML.CreateElement($Setting)
-                $addcryptosetting.InnerText = $TargetPropertyValues.$Setting
+                $addcryptosetting.InnerText = $TargetSettings.$Setting
                 $CryptoSuiteNode.AppendChild($addcryptosetting) | Out-Null
 
             
@@ -199,8 +201,8 @@ function Build-ConfigfromGPO {
         
     ##Add DisableClassBasedDefaultRoute Setting
     $DisableClassBasedDefaultRouteNode = $ProfileXML.CreateElement("DisableClassBasedDefaultRoute")
-    if ($NULL -ne $TargetPropertyValues.DisableClassBasedDefaultRoute) {
-        $DisableClassBasedDefaultRouteNode.InnerText = $TargetPropertyValues.DisableClassBasedDefaultRoute
+    if ($NULL -ne $TargetSettings.DisableClassBasedDefaultRoute) {
+        $DisableClassBasedDefaultRouteNode.InnerText = $TargetSettings.DisableClassBasedDefaultRoute
     }
     else {
         $DisableClassBasedDefaultRouteNode.InnerText = "true"
@@ -209,30 +211,30 @@ function Build-ConfigfromGPO {
         
         
 
-    
     ##Trusted Network Detection is not in VPNProfile-Node-Loop because it needs additional formatting
-    foreach ($Entry in $TargetPropertyValues.TrustedNetworkDetection) {
+    foreach ($Entry in $TargetSettings.TrustedNetworkDetection) {
         $TrustedNetworks = "$TrustedNetworks,$Entry"  
     }
     $ProfileXML.VPNProfile.TrustedNetworkDetection = $TrustedNetworks.Substring(1)
 
     #Servers setting must be configured seperately because of special formatting
-    $value = $TargetPropertyValues.Servers
+    $value = $TargetSettings.Servers
     $ProfileXML.VPNProfile.NativeProfile.Servers = "$value;$value"
     
     #Each Route is added as separate Node with multiple child nodes
-    foreach ($Route in $TargetPropertyValues.Routes) {
+    foreach ($Route in $TargetSettings.Routes.Keys) {
+        
         $Route = $Route.Replace(" ","")
-        $SplitRoute = $Route -split ";"
+        $SplitRoute = $Route -split "/"
 
         $RouteIPAddress = $SplitRoute[0]
         $RouteMask = $SplitRoute[1]
 
-        if ($NULL -ne $SplitRoute[2]) {
-            $RouteMetric = $SplitRoute[2]
+        if ($TargetSettings.Routes.$Route -like "") {
+            $RouteMetric = "1"
         }
         else {
-            $RouteMetric = 1
+            $RouteMetric = $TargetSettings.Routes.$Route
         }
     
         # Create New Route-Node
@@ -255,16 +257,14 @@ function Build-ConfigfromGPO {
 
         # Append new routes to Profile.xml
         $ProfileXML.VPNProfile.AppendChild($newroute) | Out-Null
-            
-            
 
     }
 
     #Add Traffic Filters
-    if ($NULL -ne $TargetPropertyValues.TrafficFiltersXML) {
+    if ($NULL -ne $TargetSettings.TrafficFiltersXML) {
 
         #Join each line to string then split string into traffic filter xml elements
-        $TrafficFiltersXMLString = $TargetPropertyValues.TrafficFiltersXml -join "`n"
+        $TrafficFiltersXMLString = $TargetSettings.TrafficFiltersXml -join "`n"
         $TrafficFiltersXMLSplit = $TrafficFiltersXMLString -split "(?<=</TrafficFilter>)" | Select-Object -SkipLast 1
 
         #Create new XML Element for each traffic filter node and then append that node to Profile.xml
@@ -281,8 +281,8 @@ function Build-ConfigfromGPO {
         
 
     #Each DNS-Server entry is added as separate Node with multiple child nodes
-    if ($NULL -ne $TargetPropertyValues.DomainNameInformation) {
-        foreach ($Entry in $TargetPropertyValues.DomainNameInformation) {
+    if ($NULL -ne $TargetSettings.DomainNameInformation) {
+        foreach ($Entry in $TargetSettings.DomainNameInformation) {
             $SplitEntry = $Entry -split ";"
     
             $DomainName = $SplitEntry[0]
@@ -320,7 +320,7 @@ function Build-ConfigfromGPO {
 function Build-EapConfigFromGPO {
     
     param (
-        [Object[]]$TargetPropertyValues
+        [hashtable]$TargetSettings
     )
     $EapConfig = [xml]@"
 <EapHostConfig xmlns="http://www.microsoft.com/provisioning/EapHostConfig">
@@ -347,7 +347,7 @@ function Build-EapConfigFromGPO {
     $CredentialsSourceNode = $EapConfig.CreateElement("CredentialsSource", $EapTypeNode.NamespaceURI)
 
     # Add Certificate Store or Smartcard Node based on EapTlsCredentialsSource setting, Default is Certificate Store
-    if($TargetPropertyValues.EapTlsCredentialsSource -notlike "Smartcard"){
+    if($TargetSettings.Authentication.EapTlsCredentialsSource -notlike "Smartcard"){
 
         $CertificateStoreNode = $EapConfig.CreateElement("CertificateStore", $CredentialsSourceNode.NamespaceURI)
         $SimpleCertSelectionNode = $EapConfig.CreateElement("SimpleCertSelection", $CertificateStoreNode.NamespaceURI)
@@ -368,26 +368,26 @@ function Build-EapConfigFromGPO {
 
     # ============= Add EAP-TLS Server Validation Settings ============= #
     #Create ServerValidation Node for EAP configuration  
-    $EapTlsTrustedServernameValues = $TargetPropertyValues.Keys | Where-Object { ($_ -like "EapTlsTrustedServername_*") }
-    $EapTlsTrustedRootCaValues = $TargetPropertyValues.Keys | Where-Object { ($_ -like "EapTlsTrustedRootCA_*") }
+    $EapTlsTrustedServernames = $TargetSettings.Authentication.EapTlsTrustedServerNames
+    $EapTlsTrustedRootCAs = $TargetSettings.Authentication.EapTlsTrustedRootCAs
     
     $ServerValidationNode = $EapConfig.CreateElement("ServerValidation", $EapTypeNode.NamespaceURI)
 
     # Add DisablePromptForServerValidation Node, default is false
     $DisablePromptNode = $EapConfig.CreateElement("DisableUserPromptForServerValidation", $ServerValidationNode.NamespaceURI)
-    if ($NULL -eq $TargetPropertyValues.EapTlsDisableNewServerPrompt) {
+    if ($NULL -eq $TargetSettings.Authentication.EapTlsDisableNewServerPrompt) {
         $DisablePromptNode.InnerText = "false"
     }
     else {
-        $DisablePromptNode.InnerText = $TargetPropertyValues.EapTlsDisableNewServerPrompt
+        $DisablePromptNode.InnerText = $TargetSettings.Authentication.EapTlsDisableNewServerPrompt
     }
     
     $ServerValidationNode.AppendChild($DisablePromptNode) | Out-Null
 
     # Add Trusted Server names node
     $ServernameNode = $EapConfig.CreateElement("ServerNames", $ServerValidationNode.NamespaceURI)
-    foreach ($servername in $EapTlsTrustedServernameValues) {
-        $servernamevalue = ($TargetPropertyValues.$servername).trim()
+    foreach ($servername in ($EapTlsTrustedServernames.Keys)) {
+        $servernamevalue = ($EapTlsTrustedServernames.$servername).trim()
         $ServernameList += "$servernamevalue,"
     }
     if ($ServernameList) {
@@ -396,9 +396,9 @@ function Build-EapConfigFromGPO {
     $ServerValidationNode.AppendChild($ServernameNode) | Out-Null
     
     # Add Trusted Root CA node
-    foreach ($entry in $EapTlsTrustedRootCaValues) {
+    foreach ($entry in ($EapTlsTrustedRootCas.Keys)) {
         # Get trusted Certificate Authority thumbprint from registry and format it for EAP configuration
-        $RootCAValue = ($TargetPropertyValues.$entry).trim()
+        $RootCAValue = ($EapTlsTrustedRootCas.$entry).trim()
         $RootCAValue = (($RootCAValue -replace '..(?!$)','$0 ').ToLower())+" "
 
         # Create Trusted Root CA node and add it to ServerValidation node
@@ -418,7 +418,7 @@ function Build-EapConfigFromGPO {
     $PerformServerValidationNode = $EapConfig.CreateElement("PerformServerValidation")
     $PerformServerValidationNode.SetAttribute("xmlns", "http://www.microsoft.com/provisioning/EapTlsConnectionPropertiesV2")
     
-    if($EapTlsTrustedServernameValues -or $EapTlsTrustedRootCaValues -or ($TargetPropertyValues.EapTlsDisableNewServerPrompt -like "true")){
+    if($EapTlsTrustedServerNames -or $EapTlsTrustedRootCAs -or ($TargetSettings.Authentication.EapTlsDisableNewServerPrompt -like "true")){
         $PerformServerValidationNode.InnerText = "true"
     }
     else{
@@ -443,21 +443,21 @@ function Build-EapConfigFromGPO {
     $FilteringInfoNode = $EapConfig.CreateElement("FilteringInfo", "http://www.microsoft.com/provisioning/EapTlsConnectionPropertiesV3")
     
     # Add Setting to allow all-purpose certificates to be used for EAP-TLS authentication
-    if ($TargetPropertyValues.EapTlsAllowAllPurposeEKU -eq 1) {
+    if ($TargetSettings.Authentication.EapTlsAllowAllPurposeEKU -eq 1) {
         $AllPurposeEnabledNode = $EapConfig.CreateElement("AllPurposeEnabled", $FilteringInfoNode.NamespaceURI)
         $AllPurposeEnabledNode.InnerText = "true"
         $FilteringInfoNode.AppendChild($AllPurposeEnabledNode) | Out-Null
     }
 
     # Add allowed Issuer Hashes to TlsExtensions node
-    $EapTlsIssuerHashValues = $TargetPropertyValues.Keys | Where-Object { ($_ -like "EapTlsIssuerHash_*") }
+    $EapTlsIssuerHashValues = $TargetSettings.Authentication.EapTlsIssuerHashes
     $CAHashListNode = $EapConfig.CreateElement("CAHashList", $FilteringInfoNode.NamespaceURI)
 
     if ($EapTlsIssuerHashValues) {
         $CAHashListNode.SetAttribute("Enabled", "true")
-        foreach ($entry in $EapTlsIssuerHashValues) {
+        foreach ($entry in ($EapTlsIssuerHashValues.Keys)) {
             # Get Issuer Hash from registry and format it for EAP configuration
-            $IssuerHashValue = ($TargetPropertyValues.$entry).trim()
+            $IssuerHashValue = ($EapTlsIssuerHashValues.$entry).trim()
             $IssuerHashValue = (($IssuerHashValue -replace '..(?!$)','$0 ').ToLower())+" "
 
             # Create Issuer Hash node and add it to TlsExtensions node
@@ -469,7 +469,7 @@ function Build-EapConfigFromGPO {
     }
 
     
-    if($TargetPropertyValues.EapTlsAllowClientAuthenticationEKU -eq 1){
+    if($TargetSettings.Authentication.EapTlsAllowClientAuthenticationEKU -eq 1){
         $ClientAuthEKUNode = $EapConfig.CreateElement("ClientAuthEKUList", $FilteringInfoNode.NamespaceURI)
         $ClientAuthEKUNode.IsEmpty = $True
         $ClientAuthEKUNode.SetAttribute("Enabled", "true")
@@ -478,7 +478,7 @@ function Build-EapConfigFromGPO {
 
 
 
-    if($TargetPropertyValues.EapTlsAllowAnyPurposeEKU -eq 1){
+    if($TargetSettings.Authentication.EapTlsAllowAnyPurposeEKU -eq 1){
         $AnyPurposeEKUNode = $EapConfig.CreateElement("AnyPurposeEKUList", $FilteringInfoNode.NamespaceURI)
         $AnyPurposeEKUNode.IsEmpty = $True
         $AnyPurposeEKUNode.SetAttribute("Enabled", "true")
@@ -513,11 +513,11 @@ function Test-GwinaVpnConfiguration {
     #>
     [CmdletBinding()]
     param (
-        [Object[]]$TargetPropertyValues,
+        [hashtable]$TargetSettings,
         [bool]$DeviceTunnel
     )
     
-    $mandatorysettings = @("Routes", "TrustedNetworkDetection", "Servers", "DnsSuffix", "ProfileName")
+    $mandatorysettings = @("Routes", "TrustedNetworkDetection", "Servers", "DNSSuffix", "ProfileName")
     
     if ($DeviceTunnel) {
         $mandatorysettings = $mandatorysettings + @("AuthenticationTransformConstants", "CipherTransformConstants", "EncryptionMethod", "IntegrityCheckMethod", 
@@ -529,7 +529,7 @@ function Test-GwinaVpnConfiguration {
 
     #Check if mandatory settings have been configured
     foreach ($Setting in $mandatorysettings) {
-        if($NULL -eq $TargetPropertyValues.$Setting) {
+        if($NULL -eq $TargetSettings.$Setting) {
             $MissingSettings += (", " + $Setting)
         }
     }
@@ -539,6 +539,60 @@ function Test-GwinaVpnConfiguration {
         $ErrorMessage = "Mandatory settings missing: $MissingSettings"
         #Write-Log -Message $ErrorMessage -Level 'Error'
         throw [System.ArgumentException]::new($ErrorMessage)
+    }
+
+    foreach ($Route in $TargetSettings.Routes.Keys) {
+        try{
+            $Route = $Route.Replace(" ","")
+            $SplitRoute = $Route -split "/"
+
+            # Select and Validate IP Address
+            $RouteIPAddress = $SplitRoute[0]
+
+            [ref]$ref = $null
+            if(-not ([System.Net.IPAddress]::TryParse($RouteIPAddress, $ref))){
+                throw "$RouteIPAddress is not a valid IP address."
+            }
+            elseif($RouteIPAddress -match "^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}"){
+                $RouteType = "IPv4"
+            }
+            else{
+                $RouteType = "IPv6"
+            }
+            
+
+            # Select and Validate IP Mask
+            $RouteMask = [int]$SplitRoute[1]
+
+            if ($Routemask){
+                if($RouteType -like "IPv4") {
+                    if (($RouteMask -lt 0) -or ($RouteMask -gt 32)) {
+                        throw "$RouteMask is not a valid IPv4 mask."
+                    }
+                }
+                else {
+                    if (($RouteMask -lt 0) -or ($RouteMask -gt 128)) {
+                        throw "$RouteMask is not a valid IPv6 mask."
+                    }
+                }
+            }
+            else{
+                throw "No Route Mask configured for route $Route"
+            }
+            
+            # Select and Validate Route Metric
+            if ($NULL -ne ($TargetSettings.Routes.$Route)) {
+                $RouteMetric = [int]($TargetSettings.Routes.$Route)
+
+                if (($RouteMetric -lt 0) -or ($RouteMetric -gt 9999)) {
+                    throw "$RouteMetric is not a valid route metric."
+                }
+            }
+            
+        }
+        catch{
+            throw "Configured route $Route is not a valid route. Reason: $_"
+        }
     }
 
     Write-Log -Message "Check successful. All mandatory settings are configured." -Level 'Info'
@@ -577,17 +631,38 @@ function Compare-GwinaVpnConfiguration {
     .DESCRIPTION
     This function compares the current VPN configuration with the target configuration.
 
-    .PARAMETER OptionalParameters
-    Optional parameters for the function.
     #>
     
     param (
-        [Object[]]$TargetPropertyValues,
-        [Object[]]$CurrentPropertyValues,
-        [string[]]$TargetRegPropertyNames,
-        [string[]]$CurrentRegPropertyNames
+        [string]$TargetPath,
+        [string]$CurrentPath,
+        [Object[]]$RegistrySettings
     )
 
+    # Select all settings in respective registry keys and store them in variables
+    $ConnectionTypeSettingsTarget = $RegistrySettings | where {($_.PSPath -like $TargetPath) -or ($_.PSPath -like $TargetPath + "*")}
+    $ConnectionTypeSettingsCurrent = $RegistrySettings | where {($_.PSPath -like $CurrentPath) -or ($_.PSPath -like $CurrentPath + "*")}
+
+    # Select all property values in respective registry keys and store them in variables
+    foreach ($key in $ConnectionTypeSettingsTarget){
+        $properties = Get-ItemProperty -Path $key.PSPath -ErrorAction SilentlyContinue 
+        $propertynames = $Key | select -ExpandProperty Property -ErrorAction SilentlyContinue 
+        foreach($propertyname in $propertynames){
+            $TargetPropertyValues += @{$propertyname = $properties.$propertyname}
+        }
+    }
+    
+    foreach ($key in $ConnectionTypeSettingsCurrent){
+        $properties = Get-ItemProperty -Path $key.PSPath -ErrorAction SilentlyContinue 
+        $propertynames = $Key | select -ExpandProperty Property -ErrorAction SilentlyContinue 
+        foreach($propertyname in $propertynames){
+            $CurrentPropertyValues += @{$propertyname = $properties.$propertyname}
+        }
+    }
+
+    # Select all property names in respective registry keys and store them in variables
+    $TargetRegPropertyNames =  $TargetPropertyValues.Keys | Sort-Object
+    $CurrentRegPropertyNames = $CurrentPropertyValues.Keys | Sort-Object
 
     #Compare current configuration to target configuration 
     try {
@@ -601,7 +676,7 @@ function Compare-GwinaVpnConfiguration {
     #If there are identical properties set in both keys, compare the property values
     if ($null -eq $match) {
         $configdifferences = 0
-
+        
         foreach ($Property in $TargetRegPropertyNames) {
             
             $targetvalue = $TargetPropertyValues.$Property
@@ -853,6 +928,43 @@ function Remove-GwinaVpnConnection {
 
 }
 
+function Convert-RegistryKeyToObject {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory, ValueFromPipeline)]
+        [string]$Path,
+        [object[]]$RegistrySettings
+    )
+
+    process {
+        if (-not (Test-Path -LiteralPath $Path)) {
+            return
+        }
+
+        $key = $RegistrySettings |  where {($_.PSPath -like $Path) -or ($_.PSPath -like $Path + "*")}
+
+        # Start with an ordered hashtable so property order is preserved
+        $result = [ordered]@{}
+
+        # Add the key's own values (skip the default PS* properties)
+        $properties = Get-ItemProperty -LiteralPath $Path
+        foreach ($prop in $properties.PSObject.Properties) {
+            if ($prop.Name -notmatch '^PS(Path|ParentPath|ChildName|Provider|Drive)$') {
+                $result[$prop.Name] = $prop.Value
+            }
+        }
+
+        # Recurse into subkeys
+        $subKeys = Get-ChildItem -LiteralPath $Path -ErrorAction SilentlyContinue
+        foreach ($sub in $subKeys) {
+            $subName = Split-Path -Leaf $sub.PSPath
+            $result[$subName] = Convert-RegistryKeyToObject -Path $sub.PSPath
+        }
+
+        return [hashtable]$result
+    }
+}
+
 
 :main foreach ($ConnectionTypeSettings in ($RegistrySettings | where {($_.Name -like "*Devicetunnel") -or ($_.Name -like "*AllUserConnection")})) {
 
@@ -880,43 +992,24 @@ function Remove-GwinaVpnConnection {
         $TargetPath = $RegistryPath + "\Target"
         $CurrentPath = $RegistryPath + "\Current"
 
-        # Select all settings in respective registry keys and store them in variables
-        $ConnectionTypeSettingsTarget = $RegistrySettings | where {($_.PSPath -like $TargetPath) -or ($_.PSPath -like $TargetPath + "*")}
-        $ConnectionTypeSettingsCurrent = $RegistrySettings | where {($_.PSPath -like $CurrentPath) -or ($_.PSPath -like $CurrentPath + "*")}
-
-        # Select all property values in respective registry keys and store them in variables
-        foreach ($key in $ConnectionTypeSettingsTarget){
-            $properties = Get-ItemProperty -Path $key.PSPath -ErrorAction SilentlyContinue 
-            $propertynames = $Key | select -ExpandProperty Property -ErrorAction SilentlyContinue 
-            foreach($propertyname in $propertynames){
-                $TargetPropertyValues += @{$propertyname = $properties.$propertyname}
-            }
-        }
         
-        foreach ($key in $ConnectionTypeSettingsCurrent){
-            $properties = Get-ItemProperty -Path $key.PSPath -ErrorAction SilentlyContinue 
-            $propertynames = $Key | select -ExpandProperty Property -ErrorAction SilentlyContinue 
-            foreach($propertyname in $propertynames){
-                $CurrentPropertyValues += @{$propertyname = $properties.$propertyname}
-            }
-        }
+        $TargetSettings = Convert-RegistryKeyToObject -Path $TargetPath -RegistrySettings $RegistrySettings
+        $CurrentSettings = Convert-RegistryKeyToObject -Path $CurrentPath -RegistrySettings $RegistrySettings
 
-        # Select all property names in respective registry keys and store them in variables
-        $TargetRegPropertyNames =  $TargetPropertyValues.Keys | Sort-Object
-        $CurrentRegPropertyNames = $CurrentPropertyValues.Keys | Sort-Object
 
         # Extract ProfileName from Target and Current configuration and escape spaces for use in InstanceID
-        if($TargetpropertyValues.Profilename){ 
-            $TargetprofileName = $TargetpropertyValues.Profilename
+        
+        if($TargetSettings.ProfileName){ 
+            $TargetprofileName = $TargetSettings.ProfileName
             $TargetProfileNameEscaped = $TargetProfileName.Replace(" ", "%20")
         }
-        if($CurrentPropertyValues.Profilename){ 
-            $CurrentProfileName = $CurrentPropertyValues.Profilename
+        if($CurrentSettings.ProfileName){ 
+            $CurrentProfileName = $CurrentSettings.ProfileName
             $CurrentProfileNameEscaped = $CurrentProfileName.Replace(" ", "%20")
         }
         
-       
-
+        
+        
         #Check if connection with same connection type exists
         $namespaceName = "root\cimv2\mdm\dmmap"
         $className = "MDM_VPNv2_01"
@@ -936,12 +1029,12 @@ function Remove-GwinaVpnConnection {
         } 
         
         ## If no settings are configured, remove connection
-        if ($NULL -eq $TargetRegPropertyNames) {
+        if ($NULL -eq $TargetSettings) {
             Write-Log -Message "No settings were configured." -Level 'Info' 
 
             if($CurrentConnection){
                 Write-Log -Message "Removing previously configured connection..." -Level 'Info'
-                Remove-GwinaVpnConnection -IsDevicetunnel $IsDevicetunnel -CurrentConnection $CurrentConnection -CurrentProfileName $CurrentProfileNameEscaped
+                Remove-GwinaVpnConnection -IsDevicetunnel $IsDevicetunnel -CurrentConnection $CurrentConnection
                 
             }
             Remove-Item -Path "$RegistryPath" -Recurse -ErrorAction SilentlyContinue
@@ -951,19 +1044,19 @@ function Remove-GwinaVpnConnection {
 
         ## Check mandatory settings
         Write-Log -Message "Running check for mandatory Settings..." -Level 'Info' 
-        Test-GwinaVpnConfiguration -TargetPropertyValues $TargetPropertyValues -DeviceTunnel $IsDevicetunnel
+        Test-GwinaVpnConfiguration -TargetSettings $TargetSettings -DeviceTunnel $IsDevicetunnel
         
         ## If there is a "current" sub key, compare with target subkey
-        if ($ConnectionTypeSettingsCurrent) {
+        if ($CurrentSettings) {
             #If there is connection with same connection type, run configuration comparison
             if ($null -ne $CurrentConnection) {
-                $ConfigurationDifferencesExist = Compare-GwinaVpnConfiguration -TargetPropertyValues $TargetPropertyValues -CurrentPropertyValues $CurrentPropertyValues -TargetRegPropertyNames $TargetRegPropertyNames -CurrentRegPropertyNames $CurrentRegPropertyNames
+                $ConfigurationDifferencesExist = Compare-GwinaVpnConfiguration -TargetPath $TargetPath -CurrentPath $CurrentPath -RegistrySettings $RegistrySettings
             } 
         }
 
         # Build Profile
         Write-Log -Message "Building configuration..." -Level 'Info' 
-        $ProfileXML = Build-ConfigfromGPO -TargetPropertyValues $TargetPropertyValues -DeviceTunnel $IsDevicetunnel
+        $ProfileXML = Build-ConfigfromGPO -TargetSettings $TargetSettings -IsDeviceTunnel $IsDevicetunnel
         $ProfileFormatted = Format-XML $ProfileXML.OuterXml
 
         # If there were configuration differences, remove outdated connection with ProfileName
@@ -975,7 +1068,7 @@ function Remove-GwinaVpnConnection {
         #Create VPN-Connection from Profile.xml
         Write-Log -Message "Creating new connection..." -Level 'Info' 
         try {
-            Set-GwinaVpnConnection  -ProfileName $TargetProfileName
+            Set-GwinaVpnConnection -ProfileName $TargetProfileName
         }
         catch {
             
@@ -1012,7 +1105,7 @@ function Remove-GwinaVpnConnection {
         Write-Log -Message "Error in $ConnectionTypeDisplayName processing: $($_.Exception.Message)" -Level 'Error' 
     }
     finally{
-        Clear-Variable -Name TargetPropertyValues, CurrentPropertyValues, TargetRegPropertyNames, CurrentRegPropertyNames, ConfigurationDifferencesExist, ProfileXML, ProfileFormatted, CurrentConnection, TargetProfileName, CurrentProfileName -ErrorAction SilentlyContinue
+        Clear-Variable -Name TargetSettings,CurrentSettings,TargetPropertyValues,CurrentPropertyValues,TargetRegPropertyNames,CurrentRegPropertyNames,ConfigurationDifferencesExist,ProfileXML,ProfileFormatted,CurrentConnection,TargetProfileName,CurrentProfileName -ErrorAction SilentlyContinue
         Write-Log -Message "Finished processing $ConnectionTypeDisplayName connection." -Level 'Info' 
 
         #Trim log file to max length
