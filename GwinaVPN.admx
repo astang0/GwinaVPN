@@ -56,6 +56,16 @@
     explainText="$(string.Authentication_Explain)">
       <parentCategory ref="AllUserConnection" />
     </category>
+    <category name="OptionalSettingsAUC" 
+    displayName="$(string.OptionalSettings_Name)"
+    explainText="$(string.OptionalSettings_Explain)">
+      <parentCategory ref="AllUserConnection" />
+    </category>
+    <category name="OptionalSettingsDT" 
+    displayName="$(string.OptionalSettings_Name)"
+    explainText="$(string.OptionalSettings_Explain)">
+      <parentCategory ref="DeviceTunnel" />
+    </category>
   </categories>
 
 
@@ -85,13 +95,15 @@
       displayName="$(string.TrustedNetworkDetection_Name)"
       explainText="$(string.TrustedNetworkDetection_Explain)"
       presentation="$(presentation.TrustedNetworkDetection)"
-      key="SOFTWARE\Policies\astang0\GwinaVPN\Devicetunnel\Target"
+      key="SOFTWARE\Policies\astang0\GwinaVPN\Devicetunnel\Target\TrustedNetworkDetection"
     >
 
       <parentCategory ref="DeviceTunnel" />
       <supportedOn ref="windows:SUPPORTED_Windows_10_0_NOSERVER_ENTERPRISE_EDUCATION" />
       <elements>
-        <multiText id="TrustedNetworks" valueName="TrustedNetworkDetection" required="true" />
+        <list id="TrustedNetworkDetection"
+              valuePrefix="TrustedNetworkSuffix_"
+              explicitValue="false" />
       </elements>
     </policy>
 
@@ -106,7 +118,7 @@
       key="SOFTWARE\Policies\astang0\GwinaVPN\Devicetunnel\Target"
       valueName="DisableDisconnectButton">
 
-      <parentCategory ref="DeviceTunnel" />
+      <parentCategory ref="OptionalSettingsDT" />
       <supportedOn ref="windows:SUPPORTED_Windows_11_0_22H2_NOSERVER_ENTERPRISE_EDUCATION" />
       <enabledValue>
         <string>true</string>
@@ -127,7 +139,7 @@
       key="SOFTWARE\Microsoft\Flyout\VPN"
       valueName="ShowDeviceTunnelInUI">
 
-      <parentCategory ref="DeviceTunnel" />
+      <parentCategory ref="OptionalSettingsDT" />
       <supportedOn ref="SUPPORTED_Windows_10_0_NOSERVER_ENTERPRISE_EDUCATION" />
       <enabledValue>
         <decimal value="1" />
@@ -149,7 +161,7 @@
       key="SOFTWARE\Policies\astang0\GwinaVPN\Devicetunnel\Target"
       valueName="DisableAdvancedOptionsEditButton">
 
-      <parentCategory ref="DeviceTunnel" />
+      <parentCategory ref="OptionalSettingsDT" />
       <supportedOn ref="windows:SUPPORTED_Windows_11_0_22H2_NOSERVER_ENTERPRISE_EDUCATION" />
       <enabledValue>
         <string>true</string>
@@ -170,7 +182,7 @@
       key="SOFTWARE\Policies\astang0\GwinaVPN\Devicetunnel\Target"
       valueName="DisableClassBasedDefaultRoute">
 
-      <parentCategory ref="DeviceTunnel" />
+      <parentCategory ref="OptionalSettingsDT" />
       <supportedOn ref="windows:SUPPORTED_Windows_10_0_NOSERVER_ENTERPRISE_EDUCATION" />
 
       <enabledValue>
@@ -192,14 +204,14 @@
       key="SOFTWARE\Policies\astang0\GwinaVPN\Devicetunnel\Target"
       valueName="RegisterDNS">
 
-      <parentCategory ref="DeviceTunnel" />
+      <parentCategory ref="OptionalSettingsDT" />
       <supportedOn ref="windows:SUPPORTED_Windows_10_0_NOSERVER_ENTERPRISE_EDUCATION" />
 
       <enabledValue>
-        <string>false</string>
+        <string>true</string>
       </enabledValue>
       <disabledValue>
-        <string>true</string>
+        <string>false</string>
       </disabledValue>
     </policy>
 
@@ -210,13 +222,14 @@
       displayName="$(string.Servers_Name)"
       explainText="$(string.Servers_Explain)"
       presentation="$(presentation.Servers)"
-      key="SOFTWARE\Policies\astang0\GwinaVPN\Devicetunnel\Target"
+      key="SOFTWARE\Policies\astang0\GwinaVPN\Devicetunnel\Target\VPNServers"
     >
 
       <parentCategory ref="DeviceTunnel" />
       <supportedOn ref="windows:SUPPORTED_Windows_10_0_NOSERVER_ENTERPRISE_EDUCATION" />
       <elements>
-        <text id="Servers" valueName="Servers" required="true" />
+        <list id="Servers"
+              explicitValue="true" />
       </elements>
     </policy>
 
@@ -461,13 +474,14 @@
       displayName="$(string.Dni_Name)"
       explainText="$(string.Dni_Explain)"
       presentation="$(presentation.Dni)"
-      key="SOFTWARE\Policies\astang0\GwinaVPN\Devicetunnel\Target"
+      key="SOFTWARE\Policies\astang0\GwinaVPN\Devicetunnel\Target\DomainNameInformation"
     >
 
-      <parentCategory ref="DeviceTunnel" />
+      <parentCategory ref="OptionalSettingsDT" />
       <supportedOn ref="windows:SUPPORTED_Windows_10_0_NOSERVER_ENTERPRISE_EDUCATION" />
       <elements>
-        <multiText id="Dni" valueName="DomainNameInformation" required="true" />
+        <list id="Dni"
+              explicitValue="true" />
       </elements>
     </policy>
 
@@ -481,7 +495,7 @@
       key="SOFTWARE\Policies\astang0\GwinaVPN\Devicetunnel\Target"
     >
 
-      <parentCategory ref="DeviceTunnel" />
+      <parentCategory ref="OptionalSettingsDT" />
       <supportedOn ref="windows:SUPPORTED_Windows_10_0_NOSERVER_ENTERPRISE_EDUCATION" />
       <elements>
         <multiText id="TrafficFiltersXml" valueName="TrafficFiltersXml" required="true" />
@@ -551,13 +565,15 @@
       displayName="$(string.TrustedNetworkDetection_Name)"
       explainText="$(string.TrustedNetworkDetection_Explain)"
       presentation="$(presentation.TrustedNetworkDetection)"
-      key="SOFTWARE\Policies\astang0\GwinaVPN\AllUserConnection\Target"
+      key="SOFTWARE\Policies\astang0\GwinaVPN\AllUserConnection\Target\TrustedNetworkDetection"
     >
 
       <parentCategory ref="AllUserConnection" />
       <supportedOn ref="windows:SUPPORTED_Windows_10_0_NOSERVER_ENTERPRISE_EDUCATION" />
       <elements>
-        <multiText id="TrustedNetworks" valueName="TrustedNetworkDetection" required="true" />
+        <list id="TrustedNetworkDetection"
+              valuePrefix="TrustedNetworkSuffix_"
+              explicitValue="false" />
       </elements>
     </policy>
 
@@ -572,7 +588,7 @@
       key="SOFTWARE\Policies\astang0\GwinaVPN\AllUserConnection\Target"
       valueName="DisableDisconnectButton">
 
-      <parentCategory ref="AllUserConnection" />
+      <parentCategory ref="OptionalSettingsAUC" />
       <supportedOn ref="windows:SUPPORTED_Windows_11_0_22H2_NOSERVER_ENTERPRISE_EDUCATION" />
       <enabledValue>
         <string>true</string>
@@ -594,7 +610,7 @@
       key="SOFTWARE\Policies\astang0\GwinaVPN\AllUserConnection\Target"
       valueName="DisableAdvancedOptionsEditButton">
 
-      <parentCategory ref="AllUserConnection" />
+      <parentCategory ref="OptionalSettingsAUC" />
       <supportedOn ref="windows:SUPPORTED_Windows_11_0_22H2_NOSERVER_ENTERPRISE_EDUCATION" />
       <enabledValue>
         <string>true</string>
@@ -615,7 +631,7 @@
       key="SOFTWARE\Policies\astang0\GwinaVPN\AllUserConnection\Target"
       valueName="DisableClassBasedDefaultRoute">
 
-      <parentCategory ref="AllUserConnection" />
+      <parentCategory ref="OptionalSettingsAUC" />
       <supportedOn ref="windows:SUPPORTED_Windows_10_0_NOSERVER_ENTERPRISE_EDUCATION" />
 
       <enabledValue>
@@ -637,14 +653,14 @@
       key="SOFTWARE\Policies\astang0\GwinaVPN\AllUserConnection\Target"
       valueName="RegisterDNS">
 
-      <parentCategory ref="AllUserConnection" />
+      <parentCategory ref="OptionalSettingsAUC" />
       <supportedOn ref="windows:SUPPORTED_Windows_10_0_NOSERVER_ENTERPRISE_EDUCATION" />
 
       <enabledValue>
-        <string>false</string>
+        <string>true</string>
       </enabledValue>
       <disabledValue>
-        <string>true</string>
+        <string>false</string>
       </disabledValue>
     </policy>
 
@@ -655,13 +671,14 @@
       displayName="$(string.Servers_Name)"
       explainText="$(string.Servers_Explain)"
       presentation="$(presentation.Servers)"
-      key="SOFTWARE\Policies\astang0\GwinaVPN\AllUserConnection\Target"
+      key="SOFTWARE\Policies\astang0\GwinaVPN\AllUserConnection\Target\VPNServers"
     >
 
       <parentCategory ref="AllUserConnection" />
       <supportedOn ref="windows:SUPPORTED_Windows_10_0_NOSERVER_ENTERPRISE_EDUCATION" />
       <elements>
-        <text id="Servers" valueName="Servers" required="true" />
+        <list id="Servers"
+              explicitValue="true" />
       </elements>
     </policy>
 
@@ -690,13 +707,14 @@
       displayName="$(string.Dni_Name)"
       explainText="$(string.Dni_Explain)"
       presentation="$(presentation.Dni)"
-      key="SOFTWARE\Policies\astang0\GwinaVPN\AllUserConnection\Target"
+      key="SOFTWARE\Policies\astang0\GwinaVPN\AllUserConnection\Target\DomainNameInformation"
     >
 
-      <parentCategory ref="AllUserConnection" />
+      <parentCategory ref="OptionalSettingsAUC" />
       <supportedOn ref="windows:SUPPORTED_Windows_10_0_NOSERVER_ENTERPRISE_EDUCATION" />
       <elements>
-        <multiText id="Dni" valueName="DomainNameInformation" required="true" />
+        <list id="Dni"
+              explicitValue="true" />
       </elements>
     </policy>
 
@@ -710,7 +728,7 @@
       key="SOFTWARE\Policies\astang0\GwinaVPN\AllUserConnection\Target"
     >
 
-      <parentCategory ref="AllUserConnection" />
+      <parentCategory ref="OptionalSettingsAUC" />
       <supportedOn ref="windows:SUPPORTED_Windows_10_0_NOSERVER_ENTERPRISE_EDUCATION" />
       <elements>
         <multiText id="TrafficFiltersXml" valueName="TrafficFiltersXml" required="true" />

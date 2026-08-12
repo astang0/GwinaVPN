@@ -23,25 +23,31 @@ This connection type requires Windows 10/11 Enterprise or Education.</string>
       <string id="AllUserConnection_Name">All User Connection</string>
       <string id="AllUserConnection_Explain">Policies that allow you to create a Microsoft Always On VPN User Connection that applies to all users of a device.</string>
       
-
+      <string id="Authentication_Name">Authentication Settings</string>
+      <string id="Authentication_Explain">Configure the authentication settings for the VPN connection.</string>
+      
       <string id="SUPPORTED_Windows_10_0_NOSERVER_ENTERPRISE_EDUCATION">At least Windows 10 Enterprise or Education</string>
       <string id="SUPPORTED_Windows_11_0_22H2_NOSERVER_ENTERPRISE_EDUCATION">At least Windows 11 22H2 Enterprise or Education</string>
       
+      <string id="OptionalSettings_Name">Optional Settings</string>
+      <string id="OptionalSettings_Explain">These settings are optional and can be used to further customize the VPN connection.</string>
 
-
-      <string id="DNSSuffix_Name">[Mandatory] DNS-Suffix to use when connected</string>
+      <string id="DNSSuffix_Name">Set DNS-Suffix for VPN connection</string>
       <string id="DNSSuffix_Explain">Specify the DNS-Suffix that should be used when connected via the Always On VPN connection.</string>
-      <string id="TrustedNetworkDetection_Name">[Mandatory] Trusted Network Detection</string>
+      
+      <string id="TrustedNetworkDetection_Name">Set trusted networks</string>
       <string id="TrustedNetworkDetection_Explain">Specify a list of the DNS-Suffixes of networks where the Always On VPN connection should NOT be established from.
 
-Each entry must be separated by a line break.     
+Enter one entry per line.     
       </string>
-      <string id="RegisterDNS_Name">[Optional] Disable DNS registration</string>
-      <string id="RegisterDNS_Explain">Prevents the VPN client from registering it´s IP address with the configured DNS Server. The used DNS zone is configured in the "DNS-Suffix to use when connected" setting.
+      <string id="RegisterDNS_Name">Enable DNS registration</string>
+      <string id="RegisterDNS_Explain">Allows the VPN client to register it´s IP address with the configured DNS Server. The used DNS zone is configured in the "DNS-Suffix to use when connected" setting.
 
-Default: DNS registration is enabled.
+When using a dual tunnel configuration, it is recommended to to only enable DNS registration for the device tunnel, as the user tunnel is not always active (i.e.: when no user is logged in) and might register an IP address that is not reachable. 
+
+Default: DNS registration is disabled.
       </string>
-      <string id="DisableDisconnectButton_Name">[Optional] Disable Disconnect Button</string>
+      <string id="DisableDisconnectButton_Name">Disable Disconnect Button</string>
       <string id="DisableDisconnectButton_Explain">Disables the "Disconnect" button for the VPN connection.
 
 This setting is recommended for device tunnels, as the "Disconnect" button does not work for regular users, which could lead to confusion.
@@ -49,7 +55,7 @@ The setting is only effective for Windows 11 22H2 or later.
 
 Default: The button is disabled.
       </string>
-      <string id="DisableAdvancedOptionsEditButton_Name">[Optional] Disable Advanced Options Edit Button</string>
+      <string id="DisableAdvancedOptionsEditButton_Name">Disable Advanced Options Edit Button</string>
       <string id="DisableAdvancedOptionsEditButton_Explain">Disables the "Advanced Options Edit" button for the VPN connection.
 
 This setting is recommended for device tunnels, as the "Advanced Options Edit" button does not work for regular users, which could lead to confusion.
@@ -57,7 +63,7 @@ The setting is only effective for Windows 11 22H2 or later.
 
 Default: The button is disabled.
       </string>
-      <string id="DisableClassBasedDefaultRoute_Name">[Optional] Disable Class Based Default Route</string>
+      <string id="DisableClassBasedDefaultRoute_Name">Disable Class Based Default Route</string>
       <string id="DisableClassBasedDefaultRoute_Explain">Disables the usage of class based default routes.
 
 This setting is recommended. 
@@ -66,18 +72,32 @@ When class based default routes are disabled, static routes must be specified.
 
 Default: Class based default routes are disabled.
       </string>
-      <string id="ShowDeviceTunnelInUI_Name">[Optional] Show Device Tunnel in UI</string>
+      <string id="ShowDeviceTunnelInUI_Name">Show Device Tunnel in UI</string>
       <string id="ShowDeviceTunnelInUI_Explain">Shows the connection status of the Devicetunnel in the connections menu in the task bar.
 
 Default: Device Tunnel status is not shown in UI.
       </string>
       
       
-      <string id="Servers_Name">[Mandatory] VPN Server</string>
-      <string id="Servers_Explain">FQDN of the VPN server the devices should connect to.</string>
+      <string id="Servers_Name">Set VPN server to connect to</string>
+      <string id="Servers_Explain">FQDN or IP address of the VPN server the devices should connect to.
+
+Depending on the VPN protocol used, this must match the certificate subject or alternative subject of the servers certificate.
+
+Enter the FQDN or IP address in the first column and the friendly name of the server in the second column. The friendly name is only used for display purposes in the connection center.
+Examples:
+
+        vpn01.contoso.com | VPN Server 1
+        vpn02.contoso.com | VPN Server 2
+
+Setting multiple servers only makes sense when not using an Always on VPN connection. In that case, the client will only connect to the first server in the list. If that server is not reachable, the client will not try to connect to the next server in the list.
+When not using an Always on VPN connection, users can manually select a server to connect to in the connection center. In that case, the client will only try to connect to the selected server, even if it is not the first server in the list.
+      </string>
 
       <string id="EapConfigXml_Name">Set custom EAP Configuration XML</string>
       <string id="EapConfigXml_Explain">To unlock all EAP configuration options that are available in the Security tab of a Windows VPN connection network adapter, you can enter the raw EAP Configuration XML for this connection here.
+
+Using this option will override all other EAP configuration settings in the policy.
 
 To create this EAP configuration, manually create a VPN connection on a test device and configure the EAP settings to your needs.
 Once you got the EAP configuration ready, open a Powershell to extract the EAP configuration XML.
@@ -91,7 +111,7 @@ Add some linebreaks inbetween XML elements so that the configuration fits the te
 </string>
  
 
-      <string id="IKEv2Settings_Name">[Mandatory] IKEv2/IPsec settings</string>
+      <string id="IKEv2Settings_Name">Set custom IKEv2/IPsec settings</string>
       <string id="IKEv2Settings_Explain">Specify the custom cryptography settings for the IKEv2 connection.
       
 Minimum Recommendations (requires ECC certificates on the server and client): 
@@ -103,49 +123,47 @@ PFS Group: ECP256
 DH Group: ECP256
       </string>
 
-      <string id="Routes_Name">[Mandatory] Routes</string>
+      <string id="Routes_Name">Set VPN routes</string>
       <string id="Routes_Explain">IP destinations that are reachable through the VPN tunnel.
 
-Entries are specified as IP;PREFIXSIZE;METRIC. 
+Entries are specified as IP/PrefixSize in the first column and the route metric in the second column.
 Examples:
-        10.0.14.3;32;1
-        10.13.5.0;24;1
+        
+        10.0.14.3/32 | 1
+        10.13.5.0/24 | 25
 
 If no route metric is specified, the route metric defaults to 1.
 
-Specify one entry per line. Separate multiple entries with line breaks after each entry.
+Specify one entry per line. Avoid leading zeros in the IP address.
       </string>
 
-      <string id="Dni_Name">[Optional] Domain Name Information Settings</string>
+      <string id="Dni_Name">Set domain name information settings</string>
       <string id="Dni_Explain">By default, the Windows VPN-Client will try to use the same DNS server that the VPN server is configured to use.
-To change that behavior, specify FQDNs or DNS-Suffixes and corresponding DNS-Servers to use when resolving matching FQDNs.
+To change that behavior, specify FQDNs or DNS-Suffixes and corresponding DNS-Servers to use when resolving matching FQDNs (NRPT-Policies). These settings only apply when the connection is active.
 
-Entries are specified as FQDN;DNS-SERVERS.
+Enter domain names in the first column and corresponding DNS servers in the second column.
 Examples:
+
         To match specific host:
-        DC01.adatum.com;192.168.4.3
+        DC01.adatum.com | 192.168.4.3
 
         To match all hostnames with DNS suffix ".contoso.com" specify multiple DNS-Servers:
-        .contoso.com;192.168.150.9,192.168.150.8
+        .contoso.com | 192.168.150.9,192.168.150.8
 
         To specify an exception which causes the specified host to always be resolved through the DNS, don´t specify DNS-Servers:
         FS04.contoso.com
 
-Specify one entry per line. Separate multiple entries with line breaks after each entry.
+Specify one entry per line. 
 </string>
 
-      <string id="TrafficFiltersXml_Name">[Optional] Traffic Filters</string>
+      <string id="TrafficFiltersXml_Name">Set Traffic Filters</string>
       <string id="TrafficFiltersXml_Explain">Set Traffic Filters to implement further access control. 
 
 Enter the Traffic Filter XML into the textbox (up to 50). Using traffic filters will create an implicit deny all rule, meaning that no traffic will be allowed through the VPN connection if it is not specifically allowed through a traffic filter rule. 
-
-For guidance on how to implement traffic filters refer to the wiki.
 </string>
 
-      <string id="ProfileName_Name">[Mandatory] Profile Name</string>
-      <string id="ProfileName_Explain">Display Name of the VPN-Connection. Users might see this name in the Connection Center. 
-
-Choose carefully! This name cannot be changed after the connection has been deployed. </string>
+      <string id="ProfileName_Name">Set VPN connection name</string>
+      <string id="ProfileName_Explain">Displayname of the VPN-Connection. Users might see this name in the Connection Center.</string>
 
       <string id="dropdown_MD596">MD596</string>
       <string id="dropdown_SHA196">SHA196</string>
@@ -184,20 +202,33 @@ Choose carefully! This name cannot be changed after the connection has been depl
 
       <string id="AllowedServerNames_Name">Server Validation: Allowed Authentication Server Names</string>
       <string id="AllowedServerNames_Explain">Specify a list of server names or suffix patterns that the client is allowed to connect to for authentication purposes.
+
+Examples: 
+
+      radius
+      radius.contoso.com
+      *.contoso.com
+
+Enter one entry per line.
 If this list is empty, no server name restriction is applied.
 </string>
 
       <string id="TrustedServerRootCAThumbprints_Name">Server Validation: Trusted Server Root CA Thumbprints</string>
       <string id="TrustedServerRootCAThumbprints_Explain">Specify a list of SHA-1 thumbprints of trusted root certification authorities (CAs) that are acceptable issuers of the server certificate.
+
+Examples: 
+
+      06 f1 aa 33 0b 92 7b 75 3a 40 e6 8c df 22 e3 4b cb ef 33 52
+      06f1aa330b927b753a40e68cdf22e34bcbef3352
+      06F1AA330B927B753A40E68CDF22E34BCBEF3352
+
+Enter one entry per line.      
 If this list is empty, all root CAs already trusted by the device are accepted.
 </string> 
 
-        <string id="DisableNewServerPrompt_Name">Server Validation: Disable New Server Prompt</string>
-        <string id="DisableNewServerPrompt_Explain">Do not prompt the user to authorize new servers or trusted certification authorities.</string>
+      <string id="DisableNewServerPrompt_Name">Server Validation: Disable New Server Prompt</string>
+      <string id="DisableNewServerPrompt_Explain">Do not prompt the user to authorize new servers or trusted certification authorities.</string>
 
-        <string id="Authentication_Name">Authentication Settings</string>
-        <string id="Authentication_Explain">Configure the authentication settings for the VPN connection.</string>
-      
       <string id="EapTlsCredentialsSource_Name">Client Authentication: EAP-TLS Credential Source</string>
       <string id="EapTlsCredentialsSource_Explain">Specify the credential source to use for EAP-TLS authentication. Either a certificate from the local certificate store or a smart card can be used. If a smart card is used, the user must have a smart card reader and a smart card with a valid certificate for authentication.</string>
       <string id="dropdown_CertificateStore">Certificate from Local Store</string>
@@ -218,6 +249,14 @@ All-Purpose certificates (EKU-field = 0) are allowed for client authentication.
 
       <string id="EapTlsIssuerHash_Name">Client Authentication: Allowed Client Certificate Issuer Hashes</string>
       <string id="EapTlsIssuerHash_Explain">Specify a list of SHA-1 thumbprints of trusted root certification authorities (CAs) that are acceptable issuers of the client certificate for EAP-TLS authentication.
+
+Examples: 
+
+      06 f1 aa 33 0b 92 7b 75 3a 40 e6 8c df 22 e3 4b cb ef 33 52
+      06f1aa330b927b753a40e68cdf22e34bcbef3352
+      06F1AA330B927B753A40E68CDF22E34BCBEF3352
+
+Enter one entry per line.    
 If this list is empty, all root CAs already trusted by the device are accepted.
 </string>
     
@@ -240,9 +279,7 @@ If this list is empty, all root CAs already trusted by the device are accepted.
       </presentation>
 
       <presentation id="TrustedNetworkDetection">
-        <multiTextBox refId="TrustedNetworks">
-          Trusted Networks:
-        </multiTextBox>
+        <listBox refId="TrustedNetworkDetection">Trusted Network Suffixes:</listBox>
       </presentation>
 
       <presentation id="DisableDisconnectButton">
@@ -261,9 +298,8 @@ If this list is empty, all root CAs already trusted by the device are accepted.
       </presentation>
 
       <presentation id="Servers">
-        <textBox refId="Servers">
-          <label>VPN Server:</label>
-        </textBox>
+        <text>Enter VPN servers here:</text>
+        <listBox refId="Servers">VPN Servers:</listBox>
       </presentation>
 
       <presentation id="IKEv2Settings">
@@ -281,9 +317,8 @@ If this list is empty, all root CAs already trusted by the device are accepted.
       </presentation>
 
       <presentation id="Dni">
-        <multiTextBox refId="Dni">
-          Domain Name Information Settings:
-        </multiTextBox>
+        <text>Enter Domain Name Information here:</text>
+        <listBox refId="Dni">DNI List:</listBox>
       </presentation>
 
       <presentation id="TrafficFiltersXml">

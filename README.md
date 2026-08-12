@@ -47,7 +47,7 @@ P.S.: This project was created with Microsoft Always On VPN connections in mind 
 | Show/Hide Disconnect Button           | ✅            |   ✅      |
 | Show/Hide Devicetunnel in UI          |       ✅      |    —       |
 | Allow Class Based Default Route       |     ❌        |    ❌      |
-| Supported Authentication Methods      | Machine Certificate |   EAP|
+| Supported Authentication Methods      | Machine Certificate |   EAP-TLS|
 
 ### Connection Management
 - Creates new VPN connections using the MDM_VPNv2 WMI class
@@ -76,17 +76,18 @@ P.S.: This project was created with Microsoft Always On VPN connections in mind 
 ## Quickstart
 1. Drop the .admx and .adml file in the respective directories in your domains [Central Store for Group Polices](https://learn.microsoft.com/en-us/troubleshoot/windows-client/group-policy/create-and-manage-central-store).
    
-2. Create a GPO, filter it to a newly created Active Directory Group and configure (at least) the mandatory settings under Computer Configuration/Administrative Templates/Always On VPN From GPO/[Connection Type]:
+2. Create a GPO, filter it to a newly created Active Directory Group and configure (at least) the mandatory settings under Computer Configuration/Administrative Templates/GwinaVPN/[Connection Type]. Mandatory settings are found in the root of the respective connection type settings tree.
 
 ![DT-Settings.png](https://github.com/astang0/GwinaVPN/blob/main/src/DT-Settings.png)
 
 
 3. Create and share a directory that contains [Set-GwinaVPN.ps1](https://github.com/astang0/GwinaVPN/blob/main/Set-GwinaVPN.ps1).
-4. Through a scheduling mechanism of your choice do the following regularly (schedule depending on your needs):
+   
+4. Through a scheduling mechanism of your choice, do the following regularly (schedule depending on your needs):
 
-    4.1 Sync the contents of the shared folder to a local directory on the devices that the VPN connection should be deployed on. (Optional, but is recommended)
+    4.1 Sync the contents of the shared folder to a local directory on the devices that the VPN connection should be deployed on. 
 
-    4.2 Run Set-GwinaVPN.ps1 from local or shared folder in SYSTEM context.
+    4.2 Run Set-GwinaVPN.ps1 from local folder with SYSTEM context.
 
 5. Add users or computers to your AD group and wait until all settings have been synced.
    
@@ -100,81 +101,9 @@ P.S.: This project was created with Microsoft Always On VPN connections in mind 
 - Start managing existing connections by reusing the name of the existing connection in the Group Policies
 Alternatively use the same connection name to start managing the existing connection.
 
-## Considerations
-
-###  Critical!!!
-
-1. **Script Must Run as SYSTEM**
-   - The script checks if it's running in SYSTEM context
-   - Will fail if run as a regular Administrator
-   - Use PsExec, scheduled tasks or other mechanisms ensure SYSTEM execution
-
-2. **Destructive Updates**
-   - When configuration changes are detected, **existing GwinaVPN-managed VPN connections are removed and recreated**
-   - Any VPN-related registry artifacts are cleaned up during this process
-
-3. **Connection Type Filtering**
-   - The script distinguishes connections by the conncection type
-   - Only one Device Tunnel and one All User connection can exist per configuration
-   - Existing connections are replaced, not merged
-
-###  Important!
-
-4. **Error Recovery**
-   - If VPN connection creation fails, the script attempts to revert to the previous configuration
-   - If no previous configuration exists, the original error is thrown
-
-5. **Registry Cleanup**
-   - When removing connections, the script cleans up registry artifacts 
-   - May affect manually created VPN profiles with the same name
-
-6. **Multi-String Registry Values**
-   - Properties like `Routes` and `TrustedNetworkDetection` are multi-string values
-   - Each item should be on a separate line in the registry editor
-
-7. **Protocol Selection**
-   - Device Tunnel always uses **IKEv2**
-   - All User Connection uses **Automatic** protocol selection, which means SSTP with IKEv2 as fallback protocol
-   - Cannot currently not be customized
-
-8. **Split Tunnel Routing**
-   - Script always uses **SplitTunnel** routing policy
-   - All traffic is NOT forced through the VPN
-
-### Notable Behaviors
-
-9. **Configuration Comparison**
-   - If target configuration matches current configuration exactly, no changes are made
-   - Comparison is **case-sensitive** for string values
-   - If changes are detected, a full redeployment occurs
-
-10. **Log File Management**
-    - Log files are created in the script's working directory
-    - Default maximum log size is 1000 lines; older entries are removed automatically -> can be adjusted in beginning of script
-    - Device Tunnel and AUC have separate log files
-    - Custom log file location, name and length can be configured in the starting section of the script
-
-11. **Missing Configuration**
-    - If all registry settings are removed, any existing VPN connection is deleted
-    - Registry cleanup still occurs
-    - No new connection is created
-
-12. **EAP Configuration**
-    - EAP configuration must be provided as XML in the registry
-    - The XML is inserted directly into the VPN profile
-    - Malformed XML will cause profile creation to fail
-
-13. **Always On**
-    - Script currently always deploys connections as "Always On", meaning the VPN client will automatically start the VPN connection anytime an untrusted network is detected 
-
-## Security Considerations
-
-- Script requires SYSTEM context; use secure scheduled task configuration
-- Registry may contain sensitive VPN configuration (same would apply when working with XML-based configuration files)
-- EAP certificates should be properly secured on the system
 
 
-## Further Developement
+## Active Maintenance
 
 This project currently includes all the functionality needed to deploy basic VPN profiles to Windows clients but does not yet include all available configuration options.
 

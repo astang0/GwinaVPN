@@ -95,7 +95,7 @@ function Build-ConfigfromGPO {
         <RoutingPolicyType>SplitTunnel</RoutingPolicyType>
         <NativeProtocolType></NativeProtocolType>
     </NativeProfile>
-    <RegisterDNS>true</RegisterDNS>
+    <RegisterDNS>false</RegisterDNS>
 </VPNProfile>
 "@
     
@@ -212,14 +212,25 @@ function Build-ConfigfromGPO {
         
 
     ##Trusted Network Detection is not in VPNProfile-Node-Loop because it needs additional formatting
-    foreach ($Entry in $TargetSettings.TrustedNetworkDetection) {
-        $TrustedNetworks = "$TrustedNetworks,$Entry"  
+    foreach ($Entry in $TargetSettings.TrustedNetworkDetection.Keys) {
+        $TrustedNetworkSuffix = $TargetSettings.TrustedNetworkDetection.$Entry
+        $TrustedNetworkList += "$TrustedNetworkSuffix,"  
     }
-    $ProfileXML.VPNProfile.TrustedNetworkDetection = $TrustedNetworks.Substring(1)
+    $ProfileXML.VPNProfile.TrustedNetworkDetection = $TrustedNetworkList.trim(",")
 
     #Servers setting must be configured seperately because of special formatting
-    $value = $TargetSettings.Servers
-    $ProfileXML.VPNProfile.NativeProfile.Servers = "$value;$value"
+    foreach ($Entry in $TargetSettings.VPNServers.Keys) {
+        $friendlyname = $TargetSettings.VPNServers.$Entry
+        if($friendlyname -like ""){
+            $VpnServerEntry = "$Entry;$Entry"
+        }
+        else{
+            $VpnServerEntry = "$Entry;$friendlyname"
+        }
+        
+        $VpnServerList += "$VpnServerEntry,"  
+    }
+    $ProfileXML.VPNProfile.NativeProfile.Servers = $VpnServerList.trim(",")
     
     #Each Route is added as separate Node with multiple child nodes
     foreach ($Route in $TargetSettings.Routes.Keys) {
@@ -282,11 +293,11 @@ function Build-ConfigfromGPO {
 
     #Each DNS-Server entry is added as separate Node with multiple child nodes
     if ($NULL -ne $TargetSettings.DomainNameInformation) {
-        foreach ($Entry in $TargetSettings.DomainNameInformation) {
-            $SplitEntry = $Entry -split ";"
+        foreach ($Entry in $TargetSettings.DomainNameInformation.Keys) {
+            
     
-            $DomainName = $SplitEntry[0]
-            $DnsServers = $SplitEntry[1]
+            $DomainName = $Entry
+            $DnsServers = $TargetSettings.DomainNameInformation.$Entry
     
         
             #Create Domain Name Information Node
@@ -298,7 +309,7 @@ function Build-ConfigfromGPO {
             $newdni.AppendChild($addDomain) | Out-Null
     
             #Add DnsServer if configured
-            if ($NULL -ne $DnsServers) {
+            if ($DnsServers -ne "") {
                 $addDnsServers = $ProfileXML.CreateElement("DnsServers")
                 $addDnsServers.InnerText = $DnsServers
                 $newdni.AppendChild($addDnsServers) | Out-Null
@@ -398,7 +409,7 @@ function Build-EapConfigFromGPO {
     # Add Trusted Root CA node
     foreach ($entry in ($EapTlsTrustedRootCas.Keys)) {
         # Get trusted Certificate Authority thumbprint from registry and format it for EAP configuration
-        $RootCAValue = ($EapTlsTrustedRootCas.$entry).trim()
+        $RootCAValue = ($EapTlsTrustedRootCas.$entry).replace(" ","")
         $RootCAValue = (($RootCAValue -replace '..(?!$)','$0 ').ToLower())+" "
 
         # Create Trusted Root CA node and add it to ServerValidation node
@@ -457,7 +468,7 @@ function Build-EapConfigFromGPO {
         $CAHashListNode.SetAttribute("Enabled", "true")
         foreach ($entry in ($EapTlsIssuerHashValues.Keys)) {
             # Get Issuer Hash from registry and format it for EAP configuration
-            $IssuerHashValue = ($EapTlsIssuerHashValues.$entry).trim()
+            $IssuerHashValue = ($EapTlsIssuerHashValues.$entry).replace(" ","")
             $IssuerHashValue = (($IssuerHashValue -replace '..(?!$)','$0 ').ToLower())+" "
 
             # Create Issuer Hash node and add it to TlsExtensions node
@@ -517,7 +528,7 @@ function Test-GwinaVpnConfiguration {
         [bool]$DeviceTunnel
     )
     
-    $mandatorysettings = @("Routes", "TrustedNetworkDetection", "Servers", "DNSSuffix", "ProfileName")
+    $mandatorysettings = @("Routes", "TrustedNetworkDetection", "VPNServers", "DNSSuffix", "ProfileName")
     
     if ($DeviceTunnel) {
         $mandatorysettings = $mandatorysettings + @("AuthenticationTransformConstants", "CipherTransformConstants", "EncryptionMethod", "IntegrityCheckMethod", 
@@ -711,14 +722,13 @@ function Compare-GwinaVpnConfiguration {
             Write-Log -Message "Configurations are identical. No changes will be made to the VPN-Profile." -Level 'Info'
             Continue main
         }
-        else{
-            Write-Log -Message "Configuration changes detected." -Level 'Info'
-        }
+        
         
     }
 
     if (($null -ne $match) -or ($configdifferences -gt 0)) {
         $ConfigurationDifferencesExist = $true
+        Write-Log -Message "Configuration changes detected." -Level 'Info'
     }
 
     Return $ConfigurationDifferencesExist
