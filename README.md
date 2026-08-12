@@ -1,7 +1,7 @@
 # Group Policies for the Windows native VPN-Client 
 ## Synopsis
 
-Easy Windows VPN management with **G**POs for the **Wi**ndows **na**tive **VPN** client (GwinaVPN)!
+Easy Windows VPN management with **G**POs for the **Wi**ndows **na**tive **VPN** client - or GwinaVPN for short!
 
 ## Description
 
