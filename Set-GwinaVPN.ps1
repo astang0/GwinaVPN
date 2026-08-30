@@ -1056,13 +1056,13 @@ function Convert-RegistryKeyToObject {
         Write-Log -Message "Running check for mandatory Settings..." -Level 'Info' 
         Test-GwinaVpnConfiguration -TargetSettings $TargetSettings -DeviceTunnel $IsDevicetunnel
         
-        ## If there is a "current" sub key, compare with target subkey
-        if ($CurrentSettings) {
-            #If there is connection with same connection type, run configuration comparison
-            if ($null -ne $CurrentConnection) {
-                $ConfigurationDifferencesExist = Compare-GwinaVpnConfiguration -TargetPath $TargetPath -CurrentPath $CurrentPath -RegistrySettings $RegistrySettings
-            } 
-        }
+       
+        #If there is connection with same connection type, run configuration comparison
+        if ($null -ne $CurrentConnection) {
+            $ConfigurationDifferencesExist = Compare-GwinaVpnConfiguration -TargetPath $TargetPath -CurrentPath $CurrentPath -RegistrySettings $RegistrySettings
+        } 
+        
+        
 
         # Build Profile
         Write-Log -Message "Building configuration..." -Level 'Info' 
