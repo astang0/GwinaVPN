@@ -20,9 +20,14 @@ Param (
 Set-Location $PSScriptRoot
 
 ## Set-Variables for log file.
-$LogfileDT = ".\GwinaVPN_DT_LOG.txt"
-$LogfileAUC = ".\GwinaVPN_AUC_LOG.txt"
+$Logpath = $Logpath = $env:ProgramData + "\astang0\GwinaVPN\Logs\"
+$LogfileDT = $Logpath + "GwinaVPN_DT_LOG.txt"
+$LogfileAUC = $Logpath + "GwinaVPN_AUC_LOG.txt"
 $MaxLogLength = 1000
+
+if (-not (Test-Path -Path $Logpath)) {
+    New-Item -ItemType Directory -Path $Logpath -Force | Out-Null
+}
 
 ## Fetch Registry Settings for both User and Device Tunnel
 $RegistrySettings = Get-ChildItem -Path "HKLM:\SOFTWARE\Policies\astang0\GwinaVPN" -Recurse -ErrorAction SilentlyContinue
@@ -440,7 +445,7 @@ function Build-EapConfigFromGPO {
     # Add AcceptServerName node
     $AcceptServerNameNode = $EapConfig.CreateElement("AcceptServerName")
     $AcceptServerNameNode.SetAttribute("xmlns", "http://www.microsoft.com/provisioning/EapTlsConnectionPropertiesV2")
-    if($EapTlsTrustedServernameValues){
+    if($EapTlsTrustedServernames){
         $AcceptServerNameNode.InnerText = "true"
     }
     else{

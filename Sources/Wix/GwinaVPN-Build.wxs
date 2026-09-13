@@ -1,0 +1,78 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package Name="GwinaVPN"
+    Manufacturer="astang0"
+    Version="1.0.0.0"
+    UpgradeCode="0F328B4F-0C1A-4BDB-B74C-AAAE835BCBB8"
+  >
+
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+
+    <!-- Install destination: C:\Program Files\GwinaVPN -->
+    <StandardDirectory Id="ProgramFiles6432Folder">
+      <Directory Id="INSTALLFOLDER" Name="GwinaVPN" />
+    </StandardDirectory>
+
+    <!-- Check for Powershell -->
+    <Property Id="POWERSHELLEXE">
+      <RegistrySearch Id="POWERSHELLEXE" Type="raw" Root="HKLM"
+        Key="SOFTWARE\Microsoft\PowerShell\1\ShellIds\Microsoft.PowerShell" Name="Path" />
+    </Property>
+    <Launch Condition="Installed OR POWERSHELLEXE" Message="You must have PowerShell 5.0 or higher." />
+
+    <!-- Source folders to include-->
+    <ComponentGroup Id="Files" Directory="INSTALLFOLDER">
+      <Files Include="!(bindpath.AppSrc)\**" />
+    </ComponentGroup>
+
+
+    <Feature Id="MainFeature" Title="GwinaVPN" Level="1">
+      <ComponentGroupRef Id="Files" />
+    </Feature>
+
+    <!-- ===================== INSTALL ===================== -->
+
+    <!-- Pass install path to deferred Custom Action -->
+    <CustomAction Id="SetRunInstallScript"
+      Property="RunInstallScript"
+      Value="[INSTALLFOLDER]" />
+
+    <!-- Run install script from install path -->
+    <CustomAction Id="RunInstallScript"
+      Directory="INSTALLFOLDER"
+      ExeCommand="conhost.exe --headless powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;[INSTALLFOLDER]\Install-GwinaVPN.ps1&quot;"
+      Execute="deferred"
+      Impersonate="no"
+      Return="check" />
+
+    <!-- ===================== UNINSTALL ===================== -->
+
+    <!-- Pass uninstall path to deferred Custom Action -->
+    <CustomAction Id="SetRunUninstallScript"
+      Property="RunUninstallScript"
+      Value="[INSTALLFOLDER]" />
+
+    <!-- Run uninstall script from install path -->
+    <CustomAction Id="RunUninstallScript"
+      Directory="INSTALLFOLDER"
+      ExeCommand="conhost.exe --headless powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;[CustomActionData]\Uninstall-GwinaVPN.ps1&quot;"
+      Execute="deferred"
+      Impersonate="no"
+      Return="check" />
+
+    <InstallExecuteSequence>
+      <!-- Run install script on first install and upgrades, not repairs -->
+      <Custom Action="SetRunInstallScript" Before="RunInstallScript" Condition="NOT Installed" />
+      <Custom Action="RunInstallScript" After="InstallFiles" Condition="NOT Installed" />
+
+      <!-- Run uninstall script only on full uninstall, not when upgrading -->
+      <Custom Action="SetRunUninstallScript" Before="RunUninstallScript"
+        Condition="REMOVE=&quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE" />
+      <Custom Action="RunUninstallScript" Before="RemoveFiles"
+        Condition="REMOVE=&quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE" />
+    </InstallExecuteSequence>
+
+  </Package>
+</Wix>

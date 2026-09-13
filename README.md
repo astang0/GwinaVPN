@@ -78,22 +78,22 @@ P.S.: This project was created with Microsoft Always On VPN connections in mind 
    
 2. Create a GPO, filter it to a newly created Active Directory Group and configure (at least) the mandatory settings under Computer Configuration/Administrative Templates/GwinaVPN/[Connection Type]. Mandatory settings are found in the root of the respective connection type settings tree.
 
-![DT-Settings.png](https://github.com/astang0/GwinaVPN/blob/main/src/DT-Settings.png)
+![DT-Settings.png](https://github.com/astang0/GwinaVPN/blob/main/Sources/.github/DT-Settings.png)
 
 
-3. Create and share a directory that contains [Set-GwinaVPN.ps1](https://github.com/astang0/GwinaVPN/blob/main/Set-GwinaVPN.ps1).
+1. Create and share a directory that contains Set-GwinaVPN.ps1.
    
-4. Through a scheduling mechanism of your choice, do the following regularly (schedule depending on your needs):
+2. Through a scheduling mechanism of your choice, do the following regularly (schedule depending on your needs):
 
     4.1 Sync the contents of the shared folder to a local directory on the devices that the VPN connection should be deployed on. 
 
     4.2 Run Set-GwinaVPN.ps1 from local folder with SYSTEM context.
 
-5. Add users or computers to your AD group and wait until all settings have been synced.
+3. Add users or computers to your AD group and wait until all settings have been synced.
    
-6. Done. Now the Always On VPN Connection is regularly updated according to the settings that have been set through Group Policy.
+4. Done. Now the Always On VPN Connection is regularly updated according to the settings that have been set through Group Policy.
 
-7. If you want to remove a connection from a device, just remove the user/computer from the AD group. 
+5. If you want to remove a connection from a device, just remove the user/computer from the AD group. 
    <br/>The script will remove the connection if there are no settings configured in the GPO.
 
 
