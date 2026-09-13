@@ -46,7 +46,6 @@ P.S.: This project was created with Microsoft Always On VPN connections in mind 
 | Show/Hide Advanced Options Edit Button| ✅            |   ✅      |
 | Show/Hide Disconnect Button           | ✅            |   ✅      |
 | Show/Hide Devicetunnel in UI          |       ✅      |    —       |
-| Allow Class Based Default Route       |     ❌        |    ❌      |
 | Supported Authentication Methods      | Machine Certificate |   EAP-TLS|
 
 ### Connection Management
@@ -59,47 +58,33 @@ P.S.: This project was created with Microsoft Always On VPN connections in mind 
 - Attempts failback in the event of failed connection (re)deployments
 
 ### Logging
-- Creates separate log files for each connection type in same directory the script is run from:
-  - `GwinaVPN_DT_LOG.txt` (Device Tunnel)
-  - `GwinaVPN_AUC_LOG.txt` (All User Connection)
 - Logs operations with timestamps and severity levels (Info, Error)
 - Automatically trims logs to prevent excessive file growth
-- Log file location, name and length customizable
+- Log location is C:\ProgramData\astang0\GwinaVPN\Logs
 
 ## Requirements
 
 - **PowerShell 5.1 or later**
 - **Windows 10 1809 or later**
-- **Execution Context**: Script **must run as SYSTEM** (not just Administrator)
 
 
 ## Quickstart
 1. Drop the .admx and .adml file in the respective directories in your domains [Central Store for Group Polices](https://learn.microsoft.com/en-us/troubleshoot/windows-client/group-policy/create-and-manage-central-store).
    
-2. Create a GPO, filter it to a newly created Active Directory Group and configure (at least) the mandatory settings under Computer Configuration/Administrative Templates/GwinaVPN/[Connection Type]. Mandatory settings are found in the root of the respective connection type settings tree.
+2. Configure your VPN connection according to your needs with the new settings found under Computer Configuration/Administrative Templates/GwinaVPN/[Connection Type]. Mandatory settings are found in the root of the respective connection type settings tree.
 
-![DT-Settings.png](https://github.com/astang0/GwinaVPN/blob/main/Sources/.github/DT-Settings.png)
+![DT-Settings.png](https://github.com/astang0/GwinaVPN/blob/main/Sources/.github/GPO-Settings-Screenshot.png)
 
-
-1. Create and share a directory that contains Set-GwinaVPN.ps1.
+3. Install the latest GwinaVPN.msi on your clients
    
-2. Through a scheduling mechanism of your choice, do the following regularly (schedule depending on your needs):
+4. Done. Now the VPN connection is regularly updated according to the settings that have been set through Group Policy.
 
-    4.1 Sync the contents of the shared folder to a local directory on the devices that the VPN connection should be deployed on. 
-
-    4.2 Run Set-GwinaVPN.ps1 from local folder with SYSTEM context.
-
-3. Add users or computers to your AD group and wait until all settings have been synced.
-   
-4. Done. Now the Always On VPN Connection is regularly updated according to the settings that have been set through Group Policy.
-
-5. If you want to remove a connection from a device, just remove the user/computer from the AD group. 
-   <br/>The script will remove the connection if there are no settings configured in the GPO.
+  
+If you want to remove a connection from a device, just remove the user/computer from the AD group. 
+   <br/>GwinaVPN will remove the connection if there are no settings configured in the GPO.
 
 
-- Running the script without GPO configuration does nothing. 
-- Start managing existing connections by reusing the name of the existing connection in the Group Policies
-Alternatively use the same connection name to start managing the existing connection.
+Tip: Start managing existing connections by reusing the name of the existing connection in the GwinaVPN Group Policies.
 
 
 
