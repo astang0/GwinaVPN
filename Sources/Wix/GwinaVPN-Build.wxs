@@ -1,7 +1,7 @@
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
   <Package Name="GwinaVPN"
     Manufacturer="astang0"
-    Version="1.0.0.0"
+    Version="1.1.0.0"
     UpgradeCode="0F328B4F-0C1A-4BDB-B74C-AAAE835BCBB8"
   >
 
@@ -57,7 +57,7 @@
     <!-- Run uninstall script from install path -->
     <CustomAction Id="RunUninstallScript"
       Directory="INSTALLFOLDER"
-      ExeCommand="conhost.exe --headless powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;[CustomActionData]\Uninstall-GwinaVPN.ps1&quot;"
+      ExeCommand="conhost.exe --headless powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;[INSTALLFOLDER]\Uninstall-GwinaVPN.ps1&quot;"
       Execute="deferred"
       Impersonate="no"
       Return="check" />

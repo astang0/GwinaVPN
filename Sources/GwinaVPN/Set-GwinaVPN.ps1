@@ -20,7 +20,7 @@ Param (
 Set-Location $PSScriptRoot
 
 ## Set-Variables for log file.
-$Logpath = $Logpath = $env:ProgramData + "\astang0\GwinaVPN\Logs\"
+$Logpath = $env:ProgramData + "\astang0\GwinaVPN\Logs\"
 $LogfileDT = $Logpath + "GwinaVPN_DT_LOG.txt"
 $LogfileAUC = $Logpath + "GwinaVPN_AUC_LOG.txt"
 $MaxLogLength = 1000

@@ -47,7 +47,7 @@ try {
 
     # Update scheduled task "Update-GwinaVPN-Connections"
     Write-Log -Message "Creating scheduled task 'Update-GwinaVPN-Connections'..." -Level 'Info'
-    $actions = New-ScheduledTaskAction -Execute 'conhost.exe' -Argument "--headless powershell.exe -ExecutionPolicy Bypass -File '$PsScriptRoot\Set-GwinaVPN.ps1'"
+    $actions = New-ScheduledTaskAction -Execute 'conhost.exe' -Argument "--headless powershell.exe -ExecutionPolicy Bypass -File Set-GwinaVPN.ps1" -WorkingDirectory $PsScriptRoot
     $trigger = New-ScheduledTaskTrigger -Daily -At '9:00 AM' -RandomDelay (New-TimeSpan -Minutes 60)
     $principal = New-ScheduledTaskPrincipal -UserId 'NT AUTHORITY\SYSTEM' -Runlevel Limited
     $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -ExecutionTimeLimit 00:30:00 -MultipleInstances IgnoreNew -AllowStartIfOnBatteries
@@ -59,7 +59,7 @@ try {
     
     # Update scheduled task "Update-GwinaVPN-Tasks"
     Write-Log -Message "Creating scheduled task 'Update-GwinaVPN-Tasks'..." -Level 'Info'
-    $actions = New-ScheduledTaskAction -Execute 'conhost.exe' -Argument "--headless powershell.exe -ExecutionPolicy Bypass -File '$PsScriptRoot\Update-GwinaVpnTasks.ps1'"
+    $actions = New-ScheduledTaskAction -Execute 'conhost.exe' -Argument "--headless powershell.exe -NoProfile -ExecutionPolicy Bypass -File Update-GwinaVpnTasks.ps1" -WorkingDirectory $PsScriptRoot
     $trigger = New-ScheduledTaskTrigger -Daily -At '00:00 AM'
     $principal = New-ScheduledTaskPrincipal -UserId 'NT AUTHORITY\SYSTEM' -Runlevel Limited
     $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -ExecutionTimeLimit 00:30:00 -MultipleInstances IgnoreNew -AllowStartIfOnBatteries
