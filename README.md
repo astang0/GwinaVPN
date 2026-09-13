@@ -28,7 +28,7 @@ P.S.: This project was created with Microsoft Always On VPN connections in mind 
 - One Device Tunnel and one AUC can be managed at a time by GwinaVPN
 
 ### Profile Building
-- Constructs XML-based VPN profiles based on GPO settings and creates a connection from the profile all within the script
+- Constructs XML-based VPN profiles based on GPO settings and creates a connection from the profile through a Powershell script
 - Overview over supported settings:
   
 | Setting                               |Devicetunnel   |Usertunnel |
@@ -80,8 +80,8 @@ P.S.: This project was created with Microsoft Always On VPN connections in mind 
 4. Done. Now the VPN connection is regularly updated according to the settings that have been set through Group Policy.
 
   
-If you want to remove a connection from a device, just remove the user/computer from the AD group. 
-   <br/>GwinaVPN will remove the connection if there are no settings configured in the GPO.
+It is recommended to filter the Group Policies to specific AD groups. That way, if you want to remove the VPN connections from a client, you can just remove the client from the group.
+   <br/>GwinaVPN will then remove the connection on the device if there are no other settings configured in the GPO.
 
 
 Tip: Start managing existing connections by reusing the name of the existing connection in the GwinaVPN Group Policies.
